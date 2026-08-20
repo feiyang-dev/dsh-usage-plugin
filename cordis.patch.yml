@@ -6,10 +6,10 @@
 # patch over the profile's empty root entry list, mounting the plugin row.
 #
 # The `inject` list is REQUIRED: it tells the Cordis loader to wait until the
-# fs / webServer / subprocess / credentials / sandboxPolicy / agents services
-# are ready before activating the plugin. Without it the plugin's `apply` may
-# run before those services exist, the `/usage/api` route never registers, and
-# the client panel fails with `Unexpected end of JSON input`.
+# fs / webServer / subprocess / credentials / settings / sandboxPolicy / agents
+# services are ready before activating the plugin. Without it the plugin's `apply`
+# may run before those services exist, the `/usage/api` route never registers,
+# and the client panel fails with `Unexpected end of JSON input`.
 - insert:
     - id: usage-plugin
       name: '@feiyang666/dsh-usage-plugin'
@@ -18,5 +18,6 @@
         - webServer
         - subprocess
         - credentials
+        - settings
         - sandboxPolicy
         - agents
