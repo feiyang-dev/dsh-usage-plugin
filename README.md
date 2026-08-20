@@ -236,10 +236,12 @@ npm ls @feiyang666/dsh-usage-plugin --prefix ~/.dsh/profiles/web
 > **Since v1.9.2**, records are stored in a **fixed, dedicated data directory** (fixes [#4](https://github.com/feiyang-dev/dsh-usage-plugin/issues/4)). The path no longer follows the session workspace / `~/.dsh` / desktop-app install dir, so your history never "disappears" (counted as 0) when the workspace changes, and the path shown in the UI equals the on-disk path.
 
 - **Records**: `<data root>/dsh-usage/usage-records.json`
-  - Resolution order for the **data root**:
+  - Resolution order for the **data root** (data always lands in the **first writable** dir of this list, **never in the workspace** unless all of the below are unwritable):
     1. env var `DSH_USAGE_DATA_DIR` (if set) — overrides everything;
     2. Windows: `%LOCALAPPDATA%\dsh-usage-plugin` (falls back to `%APPDATA%` if `LOCALAPPDATA` is unset);
-    3. user home dir: `~/dsh-usage-data` (Windows `%USERPROFILE%\dsh-usage-data`, macOS/Linux `~/dsh-usage-data`).
+    3. user home dir: `~/dsh-usage-data` (Windows `%USERPROFILE%\dsh-usage-data`, macOS/Linux `~/dsh-usage-data`);
+    4. **fallback (rare)**: current workspace `<workspace>/dsh-usage` — only used when all system/user dirs above are unwritable, and the panel will show a "persistence disabled" warning.
+  - **Writes bypass the model sandbox**: persistence is done by the host plugin process's own filesystem, not subject to the `workspace-write` sandbox, so the fixed directory is always writable and data is not lost when switching workspaces.
   - Default on Windows: `%LOCALAPPDATA%\dsh-usage-plugin\dsh-usage\usage-records.json`
 - **Legacy data auto-merge**: on first start, records previously scattered in `%USERPROFILE%\dsh-usage`, `~/.dsh/dsh-usage`, and each workspace's `dsh-usage` (or `.dsh-usage-records.json`) are merged into the fixed root, deduplicated by `time` — no manual migration needed.
 - Price config (edited & saved in the panel): `<data root>/dsh-usage/pricing.json`
