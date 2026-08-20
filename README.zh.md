@@ -193,6 +193,44 @@ dsh plugin --profile web remove @feiyang666/dsh-usage-plugin
 
 ---
 
+## 如何更新插件
+
+发布在 npm 上，因此更新本质就是把已发布的包拉到最新——你的用量历史**不会丢**（自 v1.9.2 起数据存放在固定的专用目录，不位于任何 profile / 工作区，更新不会清掉它）。
+
+### 桌面端
+打开 **「安装插件」** → 找到 **Usage & Cost Tracker** → 点 **更新**（或 **重新安装**）→ **「立即重启服务」**。若没有更新按钮，先卸载再重新安装即可。
+
+### 命令行（方式 A）
+重新执行 `add` 是幂等的，会拉取最新版本：
+
+```bash
+dsh plugin --profile web add @feiyang666/dsh-usage-plugin
+dsh web   # 重启
+```
+
+锁定某个版本：
+
+```bash
+dsh plugin --profile web add @feiyang666/dsh-usage-plugin@1.9.3
+```
+
+### 手动安装（方式 B）
+在 profile 目录下：
+
+```bash
+cd ~/.dsh/profiles/web
+pnpm update @feiyang666/dsh-usage-plugin   # 或：npm update @feiyang666/dsh-usage-plugin
+```
+
+### 查看已装版本
+```bash
+npm ls @feiyang666/dsh-usage-plugin --prefix ~/.dsh/profiles/web
+```
+
+> ⚠️ **不要手动修改 `~/.dsh/profiles/web/node_modules/@feiyang666/dsh-usage-plugin/` 下的文件**（如 `lib/index.js` / `lib/client.js`）。每次更新都会从 npm 重新解包并覆盖这些文件，本地改动会被静默丢弃。如需改行为，请 fork 仓库自行发布版本或向上游提贡献。
+
+---
+
 ## 数据与位置
 
 > **自 v1.9.2 起**，记录存储在**固定专用数据目录**中（修复 [#4](https://github.com/feiyang-dev/dsh-usage-plugin/issues/4)）。路径不再跟随会话工作区 / `~/.dsh` / 桌面端安装目录漂移，因此切换工作区时历史数据不会再"消失"（被统计为 0），且 UI 中显示的路径与真实落盘路径始终一致。

@@ -193,6 +193,44 @@ For manual installs (Method B), do it in reverse: remove the `usage-plugin` row 
 
 ---
 
+## How to update
+
+Releasing happens on npm, so updating just means pulling the latest published package. Your usage history is **safe** — since v1.9.2 it lives in a fixed dedicated directory (not in any profile / workspace), so an update never wipes it.
+
+### Desktop app
+Open **"Install Plugins"** → find **Usage & Cost Tracker** → click **Update** (or **Re-install**) → **"Restart Service Now"**. If there is no Update button, just remove then re-add it.
+
+### Command line (Method A)
+Re-running `add` is idempotent and pulls the newest version:
+
+```bash
+dsh plugin --profile web add @feiyang666/dsh-usage-plugin
+dsh web   # restart
+```
+
+Pin a specific version:
+
+```bash
+dsh plugin --profile web add @feiyang666/dsh-usage-plugin@1.9.3
+```
+
+### Manual install (Method B)
+In the profile dir:
+
+```bash
+cd ~/.dsh/profiles/web
+pnpm update @feiyang666/dsh-usage-plugin   # or: npm update @feiyang666/dsh-usage-plugin
+```
+
+### Verify the installed version
+```bash
+npm ls @feiyang666/dsh-usage-plugin --prefix ~/.dsh/profiles/web
+```
+
+> ⚠️ **Do not hand-edit files under `~/.dsh/profiles/web/node_modules/@feiyang666/dsh-usage-plugin/`** (e.g. `lib/index.js` / `lib/client.js`). Every update re-extracts the package from npm and overwrites those files, so local edits are silently lost. To change behavior, fork the repo and publish your own version, or contribute upstream.
+
+---
+
 ## Data & locations
 
 > **Since v1.9.2**, records are stored in a **fixed, dedicated data directory** (fixes [#4](https://github.com/feiyang-dev/dsh-usage-plugin/issues/4)). The path no longer follows the session workspace / `~/.dsh` / desktop-app install dir, so your history never "disappears" (counted as 0) when the workspace changes, and the path shown in the UI equals the on-disk path.
