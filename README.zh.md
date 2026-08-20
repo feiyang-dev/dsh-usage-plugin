@@ -39,7 +39,7 @@ dsh-usage-plugin 是 DeepSeek Harness 生态的**用量与消耗统计插件**�
 - **剩余余额查询**：用当前配置的 `DEEPSEEK_API_KEY` 查询 DeepSeek 账户余额。
 - **导出**：CSV / JSON / **PNG 长图**（按最新在前展示，最多含最近 2000 条，超出会提示；PNG 报告含高峰 / 空闲消耗分列统计），可导出到任意目录（原生目录选择器），导出后自动打开所在目录。
 - **导入**：选择文件（JSON / CSV）合并导入，按时间去重。
-- **持久化**：记录实时落盘到 `<会话工作区>/dsh-usage/usage-records.json`，重启自动恢复（上限 100000 条，尽量多存）。
+- **持久化**：记录实时落盘到**固定专用数据目录**（如 `%LOCALAPPDATA%\dsh-usage-plugin\dsh-usage\usage-records.json`，详见下文「数据目录」），与当前工作区无关，重启自动恢复（上限 100000 条，尽量多存）。
 - **界面适配**：面板字号跟随应用「显示大小」设置自动缩放（em 相对字号），面板宽度以视口封顶、宽表格在容器内横向滑动（max-content + overflow-x），任何窗口大小下所有列与合计都完整可见，不会裁掉右侧内容。
 
 ---
@@ -236,10 +236,12 @@ npm ls @feiyang666/dsh-usage-plugin --prefix ~/.dsh/profiles/web
 > **自 v1.9.2 起**，记录存储在**固定专用数据目录**中（修复 [#4](https://github.com/feiyang-dev/dsh-usage-plugin/issues/4)）。路径不再跟随会话工作区 / `~/.dsh` / 桌面端安装目录漂移，因此切换工作区时历史数据不会再"消失"（被统计为 0），且 UI 中显示的路径与真实落盘路径始终一致。
 
 - 数据文件：`<数据根>/dsh-usage/usage-records.json`
-  - **数据根**的解析顺序：
+  - **数据根**的解析顺序（数据始终落在该顺序里**第一个可写**的目录，**不会放进工作区**，除非以下全部不可写）：
     1. 环境变量 `DSH_USAGE_DATA_DIR`（若已设置）——优先级最高，覆盖其它；
     2. Windows：`%LOCALAPPDATA%\dsh-usage-plugin`（若 `LOCALAPPDATA` 未设置则回退到 `%APPDATA%`）；
-    3. 用户主目录：`~/dsh-usage-data`（Windows 为 `%USERPROFILE%\dsh-usage-data`，macOS/Linux 为 `~/dsh-usage-data`）。
+    3. 用户主目录：`~/dsh-usage-data`（Windows 为 `%USERPROFILE%\dsh-usage-data`，macOS/Linux 为 `~/dsh-usage-data`）；
+    4. **兜底（极少见）**：当前工作区 `<工作区>/dsh-usage` —— 仅当上述系统/用户目录都不可写时才使用，并会在面板顶部提示「持久化未启用」。
+  - **写入不经过模型沙箱**：持久化由插件宿主进程自身的文件系统直接完成，不受 `workspace-write` 沙箱约束，因此固定目录一定能正常写入，数据也不因工作区切换而丢失。
   - Windows 下默认位置：`%LOCALAPPDATA%\dsh-usage-plugin\dsh-usage\usage-records.json`
 - 旧数据自动合并：首次启动时，落在 `%USERPROFILE%\dsh-usage`、`~/.dsh/dsh-usage` 以及各工作区 `dsh-usage`（或 `.dsh-usage-records.json`）下的旧记录会按 `time` 去重合并进固定数据根，无需手动迁移。
 - 价格配置（面板内编辑后保存）：`<数据根>/dsh-usage/pricing.json`
