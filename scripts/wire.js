@@ -82,6 +82,7 @@ function wire(patchPath) {
     "        - webServer\n" +
     "        - subprocess\n" +
     "        - credentials\n" +
+    "        - settings\n" +
     "        - sandboxPolicy\n" +
     "        - agents\n";
   writeFileSync(patchPath, text.endsWith("\n") ? text + block : text + "\n" + block, "utf8");
