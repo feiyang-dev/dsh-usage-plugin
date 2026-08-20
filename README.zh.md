@@ -259,6 +259,7 @@ pnpm dsh web
 
 ## 致谢
 
+- **[@Martin-soaring-dev](https://github.com/Martin-soaring-dev)**：筹备了插件开源贡献（打包、插件契约校验、文档与 CI），并提交贡献分支，成为后续开源版本的基础（[#6](https://github.com/feiyang-dev/dsh-usage-plugin/pull/6)）。
 - **[@mumuer1024](https://github.com/mumuer1024)**：报告并定位了持久化路径随会话工作区漂移导致历史数据"消失/统计为 0"的问题，提出把数据写到固定专用目录的方案（[#4](https://github.com/feiyang-dev/dsh-usage-plugin/issues/4)）。
 - **[@liu3734](https://github.com/liu3734)**：报告并定位 macOS（POSIX）下路径处理与 spawn 的 Windows 专用问题，提出跨平台修复方案（[#1](https://github.com/feiyang-dev/dsh-usage-plugin/issues/1)）。
 
