@@ -195,11 +195,19 @@ For manual installs (Method B), do it in reverse: remove the `usage-plugin` row 
 
 ## Data & locations
 
-- Records: `<session workspace>/dsh-usage/usage-records.json`
-- Price config (edited & saved in the panel): `<session workspace>/dsh-usage/pricing.json`
-- Default export dir: `<session workspace>/dsh-usage/{csv,json,images}/`
+> **Since v1.9.2**, records are stored in a **fixed, dedicated data directory** (fixes [#4](https://github.com/feiyang-dev/dsh-usage-plugin/issues/4)). The path no longer follows the session workspace / `~/.dsh` / desktop-app install dir, so your history never "disappears" (counted as 0) when the workspace changes, and the path shown in the UI equals the on-disk path.
+
+- **Records**: `<data root>/dsh-usage/usage-records.json`
+  - Resolution order for the **data root**:
+    1. env var `DSH_USAGE_DATA_DIR` (if set) — overrides everything;
+    2. Windows: `%LOCALAPPDATA%\dsh-usage-plugin` (falls back to `%APPDATA%` if `LOCALAPPDATA` is unset);
+    3. user home dir: `~/dsh-usage-data` (Windows `%USERPROFILE%\dsh-usage-data`, macOS/Linux `~/dsh-usage-data`).
+  - Default on Windows: `%LOCALAPPDATA%\dsh-usage-plugin\dsh-usage\usage-records.json`
+- **Legacy data auto-merge**: on first start, records previously scattered in `%USERPROFILE%\dsh-usage`, `~/.dsh/dsh-usage`, and each workspace's `dsh-usage` (or `.dsh-usage-records.json`) are merged into the fixed root, deduplicated by `time` — no manual migration needed.
+- Price config (edited & saved in the panel): `<data root>/dsh-usage/pricing.json`
+- Default export dir: `<data root>/dsh-usage/{csv,json,images}/`
 - Custom export dir: set in the panel's "Export target directory" or click "Choose directory…"
-- Startup diagnostics (if the plugin fails to activate): `dsh-usage-boot.log` in the session workspace
+- Startup diagnostics (if the plugin fails to activate): `dsh-usage-boot.log` next to the data root
 
 ---
 
@@ -251,6 +259,7 @@ pnpm dsh web
 
 ## Acknowledgements
 
+- **[@mumuer1024](https://github.com/mumuer1024)**: reported and diagnosed the persistence-path drift across workspaces (history "disappearing" / counted as 0) and proposed storing data in a fixed, dedicated directory ([#4](https://github.com/feiyang-dev/dsh-usage-plugin/issues/4)).
 - **[@liu3734](https://github.com/liu3734)**: reported and diagnosed the Windows-only path handling / spawn issues on macOS (POSIX) and proposed the cross-platform fix ([#1](https://github.com/feiyang-dev/dsh-usage-plugin/issues/1)).
 
 ## License

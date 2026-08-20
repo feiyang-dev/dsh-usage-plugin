@@ -1,6 +1,6 @@
 {
   "name": "@feiyang666/dsh-usage-plugin",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "description": "DeepSeek Harness usage & cost tracker plugin: per-call token/cache-hit stats, peak/off-peak billing, DeepSeek balance query, CSV/JSON/PNG export with custom destination, and persistent local storage. Ships a host half plus a web client half in one npm package; installs into a DSH profile as a dsh.bundle with one command (dsh plugin --profile web add @feiyang666/dsh-usage-plugin).",
   "keywords": [
     "deepseek",
@@ -24,6 +24,10 @@
     {
       "name": "liu3734",
       "url": "https://github.com/liu3734"
+    },
+    {
+      "name": "mumuer1024",
+      "url": "https://github.com/mumuer1024"
     }
   ],
   "homepage": "https://github.com/feiyang-dev/dsh-usage-plugin#readme",

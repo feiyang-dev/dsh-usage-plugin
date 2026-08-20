@@ -195,11 +195,19 @@ dsh plugin --profile web remove @feiyang666/dsh-usage-plugin
 
 ## 数据与位置
 
-- 数据文件：`<会话工作区>/dsh-usage/usage-records.json`
-- 价格配置（面板内编辑后保存）：`<会话工作区>/dsh-usage/pricing.json`
-- 导出目录（默认）：`<会话工作区>/dsh-usage/{csv,json,images}/`
+> **自 v1.9.2 起**，记录存储在**固定专用数据目录**中（修复 [#4](https://github.com/feiyang-dev/dsh-usage-plugin/issues/4)）。路径不再跟随会话工作区 / `~/.dsh` / 桌面端安装目录漂移，因此切换工作区时历史数据不会再"消失"（被统计为 0），且 UI 中显示的路径与真实落盘路径始终一致。
+
+- 数据文件：`<数据根>/dsh-usage/usage-records.json`
+  - **数据根**的解析顺序：
+    1. 环境变量 `DSH_USAGE_DATA_DIR`（若已设置）——优先级最高，覆盖其它；
+    2. Windows：`%LOCALAPPDATA%\dsh-usage-plugin`（若 `LOCALAPPDATA` 未设置则回退到 `%APPDATA%`）；
+    3. 用户主目录：`~/dsh-usage-data`（Windows 为 `%USERPROFILE%\dsh-usage-data`，macOS/Linux 为 `~/dsh-usage-data`）。
+  - Windows 下默认位置：`%LOCALAPPDATA%\dsh-usage-plugin\dsh-usage\usage-records.json`
+- 旧数据自动合并：首次启动时，落在 `%USERPROFILE%\dsh-usage`、`~/.dsh/dsh-usage` 以及各工作区 `dsh-usage`（或 `.dsh-usage-records.json`）下的旧记录会按 `time` 去重合并进固定数据根，无需手动迁移。
+- 价格配置（面板内编辑后保存）：`<数据根>/dsh-usage/pricing.json`
+- 导出目录（默认）：`<数据根>/dsh-usage/{csv,json,images}/`
 - 自定义导出目录：在面板「导出目标目录」里填写或点「选择目录…」
-- 启动诊断日志（若插件激活失败）：会话工作区下的 `dsh-usage-boot.log`
+- 启动诊断日志（若插件激活失败）：数据根旁的 `dsh-usage-boot.log`
 
 ---
 
@@ -251,6 +259,7 @@ pnpm dsh web
 
 ## 致谢
 
+- **[@mumuer1024](https://github.com/mumuer1024)**：报告并定位了持久化路径随会话工作区漂移导致历史数据"消失/统计为 0"的问题，提出把数据写到固定专用目录的方案（[#4](https://github.com/feiyang-dev/dsh-usage-plugin/issues/4)）。
 - **[@liu3734](https://github.com/liu3734)**：报告并定位 macOS（POSIX）下路径处理与 spawn 的 Windows 专用问题，提出跨平台修复方案（[#1](https://github.com/feiyang-dev/dsh-usage-plugin/issues/1)）。
 
 ## 许可
