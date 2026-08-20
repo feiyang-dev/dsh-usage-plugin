@@ -8,6 +8,21 @@
 
 ---
 
+## 开源贡献基础：合并 PR #6（@Martin-soaring-dev，2026-08-20）
+
+> 本期（以及后续 v1.9.2 / v1.9.3）建立在社区贡献分支 **`Martin-soaring-dev/prepare_for_contribution`** 之上。该分支由用户上传、经你合并（GitHub Pull Request #6，合并 commit `12a52be`），是插件转向对外开源贡献的形态基础。
+
+### 该分支带来的主要改动
+- **多服务商余额查询**（`lib/balance.js` 新增 +205 行，新增余额适配器 `BalanceProviderAdapter`）：将原先仅 DeepSeek 的 `/user/balance` 查询扩展为可对接多个服务商的余额查询框架，新增 DeepSeek / SiliconFlow / DigitalOcean / AMD GPU Cloud 等 Provider 适配器。
+- **按服务商展示余额与价格**（`lib/client.js` +258 行）：客户端新增「剩余余额查询」Tab 的多服务商 UI，可分别展示各服务商的「总余额 / 充值 / 赠送」并切换查看。
+- **Provider 化计费**（`lib/index.js` +399 行重构）：注入 `settings` 服务用于服务商查找，调用计费改为 provider-aware，支持按不同服务商分别统计与计价。
+- **插件装配与测试**：新增余额适配器单测（`test/balance.test.js`，+130 行）、`scripts/wire.js` 手动装配兜底、`cordis.patch.yml` 插件注册条目。
+
+### 致谢
+- **[@Martin-soaring-dev](https://github.com/Martin-soaring-dev)**：提交并筹备了上述开源贡献分支（PR #6），是后续公开发布版本的功能与结构基础。
+
+---
+
 ## v1.9.3 (2026-08-20)
 
 - **概览支持日期筛选**：概览 Tab 顶部新增筛选栏，可按「今天 / 近 7 天 / 近 30 天 / 全部」快速切换，或自定义起止日期区间；所有聚合统计（按模型表、服务商 × 模型明细、总计）均按所选范围实时计算，并展示当前范围的记录数与总消耗。
@@ -15,6 +30,10 @@
 ## v1.9.2 (2026-08-20)
 
 > 修复 issue #4：持久化路径随会话工作区漂移，导致历史用量数据"消失/统计为 0"，且 UI 显示路径与实际落盘路径不一致。
+
+### 背景（症状与根因）
+- **症状**：切换会话工作区、或用不同工作区重开桌面端后，统计页的「历史用量 / 总消耗」变成 0、仿佛数据丢失；同时统计页顶部显示的「数据持久化」路径，与磁盘上真实写入的文件路径对不上。
+- **根因**：旧版持久化根按 `agent.session.cwd` / `sandboxPolicy.workspaceRoot` 推导——无会话启动时常解析到用户主目录，插件激活后又切到当前工作区，且不同根之间不会互相合并，于是历史被「切走」到另一个目录而读不到；写盘还会受工作区沙箱策略约束。
 
 ### 修复
 - **固定专用数据目录**：持久化根不再跟随 `agent.session.cwd` / `sandboxPolicy.workspaceRoot` 漂移。解析顺序为：环境变量 `DSH_USAGE_DATA_DIR` > 系统应用数据目录 `%LOCALAPPDATA%\dsh-usage-plugin`（仅 Windows；macOS/Linux 下该分支不生效，因 `LOCALAPPDATA`/`APPDATA` 未定义）> 用户主目录下专用文件夹 `~/dsh-usage-data`（Windows 为 `%USERPROFILE%\dsh-usage-data`，macOS/Linux 为 `~/dsh-usage-data`）。该目录独立于桌面端安装目录、`~/.dsh` 主目录与任何会话工作区，删除工作区或卸载 APP 都不会丢失数据。
