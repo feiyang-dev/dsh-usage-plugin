@@ -8,6 +8,21 @@
 
 ---
 
+## v1.9.2 (2026-08-20)
+
+> 修复 issue #4：持久化路径随会话工作区漂移，导致历史用量数据"消失/统计为 0"，且 UI 显示路径与实际落盘路径不一致。
+
+### 修复
+- **固定专用数据目录**：持久化根不再跟随 `agent.session.cwd` / `sandboxPolicy.workspaceRoot` 漂移。解析顺序为：环境变量 `DSH_USAGE_DATA_DIR` > 系统应用数据目录 `%LOCALAPPDATA%\dsh-usage-plugin`（仅 Windows；macOS/Linux 下该分支不生效，因 `LOCALAPPDATA`/`APPDATA` 未定义）> 用户主目录下专用文件夹 `~/dsh-usage-data`（Windows 为 `%USERPROFILE%\dsh-usage-data`，macOS/Linux 为 `~/dsh-usage-data`）。该目录独立于桌面端安装目录、`~/.dsh` 主目录与任何会话工作区，删除工作区或卸载 APP 都不会丢失数据。
+- **启动时合并去重**：首次初始化与会话激活时，自动把散落在用户主目录、`.dsh`、各工作区旧路径里的 `usage-records.json` 按 `time` 去重合并进固定根（复用现有 `normalizeRecord`），不再只读当前根的那一份。
+- **UI 路径一致**：统计页顶部显示的「数据持久化」路径恒等于真实落盘路径；写入不再绑定工作区沙箱策略，固定目录可正常写入。
+- **数据迁移**：切换根目录时对旧根记录做真正合并（非复制/分裂），重启后自动恢复全部历史。
+
+### 影响
+- 旧版本落在 `%USERPROFILE%\dsh-usage`、`.dsh\dsh-usage`、各工作区 `dsh-usage` 下的历史记录，会在首次启动本版本时自动合并到固定目录，无需手动迁移。
+
+---
+
 ## v1.9.1 (2026-08-16)
 
 - **文档**: README 改为英文优先（`README.md` 英文 + 新增 `README.zh.md` 中文）；补充「npm 包名已更换」醒目通知（旧包名 `@feiyang666/deepseekharnessdesktop` → 新包名 `@feiyang666/dsh-usage-plugin`），并移除发布教程等无关内容；修正 tarball 测试命令为新包名文件名。
