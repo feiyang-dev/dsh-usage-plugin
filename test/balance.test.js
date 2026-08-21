@@ -129,20 +129,23 @@ test('rejects API errors and unrecognized response shapes', () => {
   assert.match(parseBalanceResponse('deepseek', 'not json').error, /无法解析/)
 })
 
-test('normalizes Qwen Token Plan quota usage', () => {
+test('normalizes Qwen Token Plan quota usage (progress data)', () => {
   const res = parseBalanceResponse('qwen-token-plan', JSON.stringify({
     per1WeekPercentage: 0.20169764399999998,
     per1WeekResetTime: 1787897100000
   }))
   assert.equal(res.ok, true)
   assert.equal(res.provider, 'qwen-token-plan')
-  assert.equal(res.balanceLabel, '百炼 Token Plan 配额用量')
-  // 5 小时缺失 -> 暂无信息
-  assert.equal(res.details[0].value, '暂无信息')
-  // 1 周 -> 已用 20.2%
-  assert.match(res.details[1].value, /20\.2%/)
-  assert.match(res.details[1].hint, /2026-08-28/)
-  assert.match(res.sourceNote, /配额已用百分比/)
+  assert.equal(res.kind, 'quota-usage')
+  assert.equal(res.details.length, 0)
+  assert.ok(res.qwenQuota)
+  // 进度条比例：0.2017 -> 约 0.2017
+  assert.ok(Math.abs(res.qwenQuota.ratio - 0.201697644) < 0.001)
+  assert.equal(res.qwenQuota.usedPercent, '20.2%')
+  assert.match(res.qwenQuota.weekEnd, /2026-08-28/)
+  assert.match(res.qwenQuota.weekStart, /2026-08-21/)
+  assert.equal(res.qwenQuota.ratioLabel, '已用 20.2%')
+  assert.match(res.sourceNote, /1 周配额已用进度/)
 })
 
 test('rejects a Qwen Token Plan response with no quota fields', () => {

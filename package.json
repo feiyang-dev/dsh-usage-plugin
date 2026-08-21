@@ -1,6 +1,6 @@
 {
   "name": "@wuhuqif176/dsh-usage-plugin",
-  "version": "1.10.0",
+  "version": "1.10.2",
   "description": "DeepSeek Harness usage & cost tracker plugin: per-call token/cache-hit stats, peak/off-peak billing, DeepSeek balance query + Qwen/百炼 Token Plan 配额查询, CSV/JSON/PNG export with custom destination, and persistent local storage. Fork of @feiyang666/dsh-usage-plugin.",
   "keywords": [
     "deepseek",
