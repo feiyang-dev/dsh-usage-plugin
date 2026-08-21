@@ -1,7 +1,7 @@
 {
-  "name": "@feiyang666/dsh-usage-plugin",
-  "version": "1.9.4",
-  "description": "DeepSeek Harness usage & cost tracker plugin: per-call token/cache-hit stats, peak/off-peak billing, DeepSeek balance query, CSV/JSON/PNG export with custom destination, and persistent local storage. Ships a host half plus a web client half in one npm package; installs into a DSH profile as a dsh.bundle with one command (dsh plugin --profile web add @feiyang666/dsh-usage-plugin).",
+  "name": "@wuhuqif176/dsh-usage-plugin",
+  "version": "1.10.0",
+  "description": "DeepSeek Harness usage & cost tracker plugin: per-call token/cache-hit stats, peak/off-peak billing, DeepSeek balance query + Qwen/百炼 Token Plan 配额查询, CSV/JSON/PNG export with custom destination, and persistent local storage. Fork of @feiyang666/dsh-usage-plugin.",
   "keywords": [
     "deepseek",
     "harness",
@@ -18,7 +18,7 @@
   "main": "lib/index.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/feiyang-dev/dsh-usage-plugin.git"
+    "url": "git+https://github.com/wuhuqif176/dsh-usage-plugin.git"
   },
   "contributors": [
     {
@@ -34,9 +34,9 @@
       "url": "https://github.com/mumuer1024"
     }
   ],
-  "homepage": "https://github.com/feiyang-dev/dsh-usage-plugin#readme",
+  "homepage": "https://github.com/wuhuqif176/dsh-usage-plugin#readme",
   "bugs": {
-    "url": "https://github.com/feiyang-dev/dsh-usage-plugin/issues"
+    "url": "https://github.com/wuhuqif176/dsh-usage-plugin/issues"
   },
   "exports": {
     ".": "./lib/index.js",
@@ -73,5 +73,8 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1"
+  },
+  "dependencies": {
+    "undici": "^7.0.0"
   }
 }
