@@ -10,7 +10,7 @@ import {
 
 test('lists every balance provider and defaults to DeepSeek', () => {
   assert.deepEqual(providerList().map((p) => p.id), [
-    'deepseek', 'siliconflow', 'digitalocean', 'amd-gpu-cloud'
+    'deepseek', 'siliconflow', 'digitalocean', 'amd-gpu-cloud', 'qwen-token-plan'
   ])
   assert.equal(getBalanceProvider().id, 'deepseek')
   assert.equal(getBalanceProvider('unknown'), null)
@@ -127,4 +127,26 @@ test('rejects API errors and unrecognized response shapes', () => {
   assert.match(parseBalanceResponse('siliconflow', '{"code":401,"message":"bad key"}').error, /bad key/)
   assert.match(parseBalanceResponse('digitalocean', '{}').error, /account_balance/)
   assert.match(parseBalanceResponse('deepseek', 'not json').error, /无法解析/)
+})
+
+test('normalizes Qwen Token Plan quota usage', () => {
+  const res = parseBalanceResponse('qwen-token-plan', JSON.stringify({
+    per1WeekPercentage: 0.20169764399999998,
+    per1WeekResetTime: 1787897100000
+  }))
+  assert.equal(res.ok, true)
+  assert.equal(res.provider, 'qwen-token-plan')
+  assert.equal(res.balanceLabel, '百炼 Token Plan 配额用量')
+  // 5 小时缺失 -> 暂无信息
+  assert.equal(res.details[0].value, '暂无信息')
+  // 1 周 -> 已用 20.2%
+  assert.match(res.details[1].value, /20\.2%/)
+  assert.match(res.details[1].hint, /2026-08-28/)
+  assert.match(res.sourceNote, /配额已用百分比/)
+})
+
+test('rejects a Qwen Token Plan response with no quota fields', () => {
+  const res = parseBalanceResponse('qwen-token-plan', JSON.stringify({ foo: 1 }))
+  assert.equal(res.ok, false)
+  assert.match(res.error, /没有可识别的配额字段/)
 })

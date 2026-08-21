@@ -8,6 +8,19 @@
 
 ---
 
+## v1.10.0 (2026-08-21) — @wuhuqif176/dsh-usage-plugin（fork）
+
+> 由 `@feiyang666/dsh-usage-plugin` v1.9.4 fork 而来，包名改为 `@wuhuqif176/dsh-usage-plugin`。
+
+### 新增：百炼 Token Plan 配额查询（低风险）
+- **「剩余余额查询」新增「百炼 Token Plan」sub-tab**（`lib/balance.js` / `lib/index.js` / `lib/client.js`）。
+- 复用百炼 CLI（`bl`）的「控制台登录」OAuth token（`~/.bailian/config.json` 的 `access_token`），**不需要阿里云 AccessKey / BSS 权限**，权限面远小于此前讨论的 `AliyunBSSReadOnlyAccess`。
+- Host 侧新增 `console-token` 查询模式：读取 `~/.bailian/config.json` → 调百炼门户网关 `zeldaHttp.apikeyMgr./tokenplan/personal/api/v2/usage` → 返回 5 小时 / 1 周配额已用百分比与重置时间。
+- 客户端渲染：百分比按官方 CLI 的 `round(x*1000)/10` 格式（如 `20.6%`），重置时间显示本地日期 + 相对倒计时（如 `2026-08-28 14:05:00（6d 14h 43m）`）。
+- 说明：展示的是**配额已用百分比**（5 小时/1 周），不是剩余 token 数。
+
+---
+
 ## 开源贡献基础：合并 PR #6（@Martin-soaring-dev，2026-08-20）
 
 > 本期（以及后续 v1.9.2 / v1.9.3）建立在社区贡献分支 **`Martin-soaring-dev/prepare_for_contribution`** 之上。该分支由用户上传、经你合并（GitHub Pull Request #6，合并 commit `12a52be`），是插件转向对外开源贡献的形态基础。
