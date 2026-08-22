@@ -2,7 +2,7 @@
 #
 # This file is the package's `dsh.bundle.patch` layer. When the package is
 # installed into a DSH profile (via `dsh plugin --profile <name> add
-# @feiyang666/dsh-usage-plugin`, or manually), the loader applies this
+# @wuhuqif176/dsh-usage-plugin`, or manually), the loader applies this
 # patch over the profile's empty root entry list, mounting the plugin row.
 #
 # The `inject` list is REQUIRED: it tells the Cordis loader to wait until the
@@ -12,7 +12,7 @@
 # and the client panel fails with `Unexpected end of JSON input`.
 - insert:
     - id: usage-plugin
-      name: '@feiyang666/dsh-usage-plugin'
+      name: '@wuhuqif176/dsh-usage-plugin'
       inject:
         - fs
         - webServer
