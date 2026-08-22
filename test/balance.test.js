@@ -30,6 +30,7 @@ test('normalizes DeepSeek balance response', () => {
   assert.equal(res.isAvailable, true)
   assert.equal(res.infos[0].toppedUpBalance, '10.00')
   assert.deepEqual(res.details.map((d) => d.value), ['10.00', '2.34'])
+  assert.deepEqual(res.details.map((d) => d.labelKey), ['toppedUp', 'granted'])
 })
 
 test('does not report DeepSeek unavailable when the field is omitted', () => {
@@ -51,7 +52,8 @@ test('normalizes researched SiliconFlow user info fields', () => {
   assert.equal(res.zeroBalance, false)
   assert.deepEqual(res.details.map((d) => d.value), ['8.75', '3.25'])
   assert.deepEqual(res.fieldDefinitions.map((d) => d.name), ['totalBalance', 'chargeBalance', 'balance'])
-  assert.match(res.sourceNote, /代金券/)
+  assert.deepEqual(res.details.map((d) => d.labelKey), ['toppedUp', 'grantedLegacy'])
+  assert.equal(res.sourceNoteKey, 'note.siliconflow')
 })
 
 test('marks a successful all-zero SiliconFlow response for UI diagnostics', () => {
@@ -100,7 +102,7 @@ test('normalizes DigitalOcean account billing balance', () => {
   assert.equal(res.currency, 'USD')
   assert.equal(res.totalBalance, '12.23')
   assert.equal(res.balanceKind, 'due')
-  assert.equal(res.balanceLabel, '待结算账户余额')
+  assert.equal(res.balanceLabelKey, 'bal.due')
   assert.equal(res.monthToDateUsage, '11.21')
   assert.equal(res.monthToDateBalance, '23.44')
   assert.deepEqual(res.details.map((d) => d.value), ['11.21'])
@@ -116,7 +118,7 @@ test('shows a negative DigitalOcean account balance as available credit', () => 
   assert.equal(res.ok, true)
   assert.equal(res.totalBalance, '13')
   assert.equal(res.balanceKind, 'credit')
-  assert.equal(res.balanceLabel, '可用信用余额')
+  assert.equal(res.balanceLabelKey, 'bal.credit')
   assert.equal(res.rawAccountBalance, '-13.00')
   assert.equal(res.monthToDateUsage, '0.00')
   assert.equal(res.monthToDateBalance, '-13.00')
@@ -127,4 +129,35 @@ test('rejects API errors and unrecognized response shapes', () => {
   assert.match(parseBalanceResponse('siliconflow', '{"code":401,"message":"bad key"}').error, /bad key/)
   assert.match(parseBalanceResponse('digitalocean', '{}').error, /account_balance/)
   assert.match(parseBalanceResponse('deepseek', 'not json').error, /无法解析/)
+})
+
+test('successful payloads carry semantic keys instead of Chinese presentation text', () => {
+  const samples = [
+    ['deepseek', JSON.stringify({ is_available: true, balance_infos: [{ currency: 'CNY', total_balance: '12.34', granted_balance: '2.34', topped_up_balance: '10.00' }] })],
+    ['siliconflow', JSON.stringify({ code: 20000, data: { balance: '3.25', chargeBalance: '8.75', totalBalance: '12.00' } })],
+    ['digitalocean', JSON.stringify({ account_balance: '-5.25', month_to_date_usage: '3.10', generated_at: '2026-08-22T00:00:00Z' })]
+  ]
+  const cjk = /[\u4e00-\u9fff]/
+  for (const [provider, body] of samples) {
+    const res = parseBalanceResponse(provider, body)
+    assert.equal(res.ok, true)
+    const payload = JSON.stringify({
+      details: res.details,
+      fieldDefinitions: res.fieldDefinitions,
+      sourceNoteKey: res.sourceNoteKey,
+      balanceLabelKey: res.balanceLabelKey,
+      infos: res.infos
+    })
+    assert.equal(cjk.test(payload), false, provider + ' payload should not contain CJK presentation text')
+  }
+})
+
+test('digitalocean maps account kinds to semantic labels', () => {
+  const credit = parseBalanceResponse('digitalocean', JSON.stringify({ account_balance: '-5.25' }))
+  const due = parseBalanceResponse('digitalocean', JSON.stringify({ account_balance: '7.50' }))
+  const settled = parseBalanceResponse('digitalocean', JSON.stringify({ account_balance: '0' }))
+  assert.equal(credit.ok && due.ok && settled.ok, true)
+  assert.equal(credit.balanceLabelKey, 'bal.credit')
+  assert.equal(due.balanceLabelKey, 'bal.due')
+  assert.equal(settled.balanceLabelKey, 'bal.settled')
 })
