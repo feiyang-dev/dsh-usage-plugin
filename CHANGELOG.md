@@ -8,6 +8,17 @@
 
 ---
 
+## Unreleased（社区贡献候选）：英文界面 / i18n
+
+- **新增英文界面（i18n 层）**：Web 面板全部 UI 文案接入轻量 i18n——以原中文文案为键、内置英译词典（260 条主词典 + 22 条余额键值对）；按浏览器语言自动选择（中文浏览器保持中文，其余默认英文），「用量与消耗」头部新增切换按钮，即时生效并保存于 localStorage。
+- **响应式语言切换**：语言以 React 状态注入 Usage / Balance 两个面板（`useLang` 订阅机制），切换不依赖任何网络请求；SUBTABS 等集合标签改为渲染时翻译。外部标签页名（slots label）在注册时定格，页面刷新后更新——按钮 tooltip 与两份 README 均已注明。
+- **瞬态提示文案同样响应式**：导出 / 导入 / 目录选择等状态消息与客户端校验错误改为语义描述符（`{ k }` / `{ k, tail }` / `{ seq }` / `errorKey`）存储，渲染时才翻译，切换语言后既有提示立即跟随当前语言。
+- **缺失凭据错误不再泄漏内部键**：`PROVIDERS.credentialHint` 更名为 `credentialHintKey`；DeepSeek 未配置凭据的错误改由技术凭据名生成（如「未找到 DEEPSEEK_API_KEY，请配置后重试」），新增 `missingCredentialError` 助手与单测断言错误中不含 `hint.*`。
+- **测试与调试钩子**：新增 `exports.__i18n`（t / tb / msgText / setLang / 日期格式化）与 `test/client-i18n.test.js` —— 覆盖语言即时切换、localStorage 持久化跨挂载生效、日期 / 星期渲染、瞬态消息双语文案、余额语义键双语全覆盖。
+- **余额查询改用语义化字段**：host（`lib/balance.js`）不再返回中文展示文案，改为 `labelKey / hintKey / meaningKey / sourceNoteKey / balanceLabelKey` 等稳定键，双语文案集中到客户端；成功响应负载不含中文展示文本（新增单测覆盖）。错误消息本期保持中文，拟后续跟进。
+- **本地化日期与星期**：新增 `dayLabel / fmtMonthLabel / dailyStatsTitle / weekdayLabels`，中文保持 `2026年8月22日` 习惯格式，英文输出 `Aug 22, 2026`、`August 2026` 与 Mo–Su 星期表头。
+- **实现范围**：改动 `lib/client.js` 与 `lib/balance.js`；PNG 报告、日历悬停提示等 canvas 文案同步支持英文；与数据相关的比较（如合计行 key `"合计"`）保留原文不受翻译影响。宿主端日志 / 错误文案保持中文，拟后续跟进。
+
 ## 开源贡献基础：合并 PR #6（@Martin-soaring-dev，2026-08-20）
 
 > 本期（以及后续 v1.9.2 / v1.9.3）建立在社区贡献分支 **`Martin-soaring-dev/prepare_for_contribution`** 之上。该分支由用户上传、经你合并（GitHub Pull Request #6，合并 commit `12a52be`），是插件转向对外开源贡献的形态基础。
