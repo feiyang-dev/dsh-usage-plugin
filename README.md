@@ -41,7 +41,7 @@ dsh-usage-plugin is a **usage & cost tracker** plugin in the DeepSeek Harness ec
 - **Import**: merge-imports JSON / CSV files, deduplicated by time.
 - **Persistence**: records are written live to `<session workspace>/dsh-usage/usage-records.json` and restored on restart (cap 100000 records).
 - **UI adaptation**: panel typography scales with the app's display-size setting (em-relative fonts); table wrapping and spacing are tuned so large display sizes stay readable.
-- **English UI (i18n)**: the panel auto-detects your browser language — Chinese browsers keep 中文, everyone else gets English; a toggle button next to Refresh switches instantly, and the choice persists via `localStorage` (`dsh-usage-lang`).
+- **English UI (i18n)**: the panel auto-detects your browser language — Chinese browsers keep 中文, everyone else gets English; a toggle button next to Refresh switches instantly, and the choice persists via `localStorage` (`dsh-usage-lang`). Panel content switches immediately; the host-level Conversation/Settings tab labels are registered once at boot and pick up the new language after a page reload.
 
 ---
 
