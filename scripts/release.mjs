@@ -76,9 +76,10 @@ if (created.status !== 201) {
 const release = JSON.parse(created.body)
 console.log('release id:', release.id, 'url:', release.html_url)
 
-// 打包并上传 tarball 作为附件（Windows 下 npm 为 npm.cmd 批处理脚本，需经 shell 执行）
-const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm'
-const pack = spawnSync(npmCmd, ['pack'], { encoding: 'utf8', shell: process.platform === 'win32' })
+// 打包并上传 tarball 作为附件（Windows 下 npm 为 npm.cmd 批处理脚本，经 cmd /c 执行）
+const pack = process.platform === 'win32'
+  ? spawnSync('cmd', ['/c', 'npm', 'pack'], { encoding: 'utf8' })
+  : spawnSync('npm', ['pack'], { encoding: 'utf8' })
 const tgzName = (pack.stdout || '').trim().split('\n').pop()
 if (tgzName && fs.existsSync(tgzName)) {
   const buf = fs.readFileSync(tgzName)
