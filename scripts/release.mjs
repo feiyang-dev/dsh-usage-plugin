@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 const REPO = 'feiyang-dev/dsh-usage-plugin'
-const TAG = 'v1.10.0'
+const TAG = 'v1.11.0'
 
 function getCredential() {
   const input = 'protocol=https\nhost=github.com\n\n'
