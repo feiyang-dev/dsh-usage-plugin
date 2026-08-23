@@ -3,7 +3,7 @@ import https from 'node:https'
 import fs from 'node:fs'
 
 const REPO = 'feiyang-dev/dsh-usage-plugin'
-const RELEASE_ID = 373691852
+const RELEASE_ID = 375097521
 
 function getCredential() {
   const input = 'protocol=https\nhost=github.com\n\n'
