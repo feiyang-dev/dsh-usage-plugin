@@ -4,7 +4,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 const REPO = 'feiyang-dev/dsh-usage-plugin'
-const TAG = 'v1.11.1'
+const VERSION = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8')).version
+const TAG = `v${VERSION}`
 
 function getCredential() {
   const input = 'protocol=https\nhost=github.com\n\n'
