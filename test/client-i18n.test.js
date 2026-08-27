@@ -46,9 +46,10 @@ test('language switch flips rendered text instantly, no network involved', async
   assert.equal(i.t('概览'), 'Overview') // non-zh environment defaults to English
   i.setLang('zh')
   assert.equal(i.t('概览'), '概览')
-  assert.equal(storage.getItem('dsh-usage-lang'), 'zh')
   i.setLang('en')
-  assert.equal(storage.getItem('dsh-usage-lang'), 'en')
+  assert.equal(i.t('概览'), 'Overview')
+  // 语言不再写入 localStorage：切换只在内存生效，永远以宿主语言设置为准
+  assert.equal(storage.getItem('dsh-usage-lang'), null)
 })
 
 test('dates and weekdays follow locale rules', async () => {
@@ -66,11 +67,49 @@ test('dates and weekdays follow locale rules', async () => {
   i.setLang('en')
 })
 
-test('persisted language is honored on the next mount', async () => {
-  const first = await loadClient()
-  first.exports.__i18n.setLang('zh')
-  const second = await loadClient({ storage: first.storage }) // same storage, fresh module eval
-  assert.equal(second.exports.__i18n.t('概览'), '概览')
+test('language follows the host locale service (system settings), live', async () => {
+  const { exports } = await loadClient()
+  const i = exports.__i18n
+  let state = { active: 'en' }
+  const listeners = []
+  const locale = {
+    getLocale: () => state,
+    subscribe: fn => { listeners.push(fn); return () => {} }
+  }
+  const ctx = {
+    get: name => name === 'locale' ? locale : name === 'slots' ? { inject: () => {}, register: () => {} } : undefined,
+    on: () => {}
+  }
+  exports.apply(ctx)
+  assert.equal(i.t('概览'), 'Overview') // host locale en → English
+  state = { active: 'zh' }
+  for (const fn of listeners) fn() // host locale switched → panel re-renders instantly
+  assert.equal(i.t('概览'), '概览')
+  state = { active: 'en' }
+  for (const fn of listeners) fn()
+  assert.equal(i.t('概览'), 'Overview')
+})
+
+test('a stale dsh-usage-lang localStorage value no longer overrides the host locale', async () => {
+  const storage = {
+    _d: { 'dsh-usage-lang': 'en' },
+    getItem(k) { return k in this._d ? this._d[k] : null },
+    setItem(k, v) { this._d[k] = String(v) }
+  }
+  const { exports } = await loadClient({ storage })
+  const i = exports.__i18n
+  let state = { active: 'zh' }
+  const locale = {
+    getLocale: () => state,
+    subscribe: () => () => {}
+  }
+  const ctx = {
+    get: name => name === 'locale' ? locale : name === 'slots' ? { inject: () => {}, register: () => {} } : undefined,
+    on: () => {}
+  }
+  exports.apply(ctx)
+  // 旧版本曾把 “en” 写入 localStorage；现在宿主语言为 zh，插件必须显示中文
+  assert.equal(i.t('概览'), '概览')
 })
 
 test('transient messages render through the current locale', async () => {
@@ -126,5 +165,30 @@ test('missing credential cites technical names and never hint keys', () => {
   for (const id of ['siliconflow', 'digitalocean', 'amd-gpu-cloud']) {
     const err = missingCredentialError(getBalanceProvider(id)).error
     assert.doesNotMatch(err, /hint\./, id + ' leaked a hint key')
+  }
+})
+
+// 回归用例来自 issue #9：周末（2026-08-23 北京时间 00:00 起）全天按空闲价，
+// 星期必须取自平移后的北京时间，且生效前不得追溯打折。
+const PEAK_CASES = [
+  ['2026-08-23T01:30:00Z', '周日 09:30', false],
+  ['2026-08-23T07:00:00Z', '周日 15:00', false],
+  ['2026-08-24T01:30:00Z', '周一 09:30', true],
+  ['2026-08-22T01:30:00Z', '周六 09:30（生效前）', true],
+  ['2026-08-28T16:30:00Z', '周六 00:30（UTC 还是周五）', false]
+]
+
+test('client isPeakNow / periodNow match the official weekend flat-rate rule (issue #9)', async () => {
+  const { exports } = await loadClient()
+  const i = exports.__i18n
+  for (const [iso, bj, expected] of PEAK_CASES) {
+    const ts = Date.parse(iso)
+    assert.equal(i.isPeakNow(ts), expected, `${iso} (${bj}) isPeakNow should be ${expected ? 'peak' : 'off-peak'}`)
+    const period = i.periodNow(ts)
+    assert.equal(period.peak, expected, `${iso} (${bj}) periodNow.peak should be ${expected}`)
+    // 周末生效后 → 「周末空闲时段」；工作日高峰 → 「工作日高峰时段」；生效前周末高峰 → 「周末高峰时段」
+    if (expected === false && bj.indexOf('周日') >= 0) assert.equal(period.label, '周末空闲时段')
+    if (expected === true && bj.indexOf('周一') >= 0) assert.equal(period.label, '工作日高峰时段')
+    if (expected === true && bj.indexOf('生效前') >= 0) assert.equal(period.label, '周末高峰时段')
   }
 })

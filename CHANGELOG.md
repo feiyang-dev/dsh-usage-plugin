@@ -8,27 +8,32 @@
 
 ---
 
-## Unreleased（社区贡献候选）：百炼（Qwen）Token Plan 配额查询
+## v1.14.0 (2026-08-27)
 
-- **「剩余余额查询」新增「百炼 Token Plan」配额查询**（`lib/balance.js` / `lib/index.js` / `lib/client.js`，PR #8，@wuhuqif176）。
-- 复用百炼 CLI（`bl`）的「控制台登录」OAuth token（`~/.bailian/config.json` 的 `access_token`），**不需要阿里云 AccessKey / BSS 权限**，权限面远小于 `AliyunBSSReadOnlyAccess`。
-- Host 侧新增 `console-token` 查询模式：读取 `~/.bailian/config.json` → 调百炼门户网关 `zeldaHttp.apikeyMgr./tokenplan/personal/api/v2/usage` → 返回配额已用百分比与重置时间。
-- 客户端渲染：百分比按官方 CLI 的 `round(x*1000)/10` 格式（如 `20.6%`），重置时间显示本地日期 + 相对倒计时；「本周配额」卡片用连续线段展示开始 / 结束日期（开始到今天深蓝、今天到结束浅色），今天节点随日期动态移动，窗口宽度随浏览器缩放自适应。
-- 说明：展示的是**配额已用百分比**，不是剩余 token 数；百炼 Token Plan 实际没有 5 小时配额（相关 UI 已移除）。
-- 新增依赖 `undici`（`package.json`）。
+### 新增 / New
 
----
+- **消息底部「本轮 token」弹窗（两层统计）**：多轮完成后，助手消息底部操作行（复制 / 点赞 / 点踩 / 回复 那一排）新增「本轮 token」按钮，点击弹出 `Token 明细`：
+  - **对话累计**：整场对话（当前会话）的 总 token / 总消耗 / 耗时 / 缓存命中率；
+  - **本轮明细**：本次输出 / 本轮 token / 本轮消耗 / 本轮耗时 / 本轮缓存命中率 / **缓存命中长条图**（命中部分单独绿色渲染 + 百分比）/ **按模型卡片**（每模型：模型名 + 总成本，一行 输入·未命中 / 缓存命中 / 输出（+推理），有费用再一行 峰 / 谷）；
+  - 时长统一按「X分Y秒」（英文 `Xm Ys`）显示；本轮窗口取该消息实际产出所在 step 的起止，本轮命中率与对话累计各自独立统计。
+- **宿主记录带会话标识**：`llm/stream` 捕获每条记录时新增 `sessionId`（优先 `options.sessionId`，缺失回退当前 agent 会话）；新增 `tokenForMessage` API——按「会话 + 时间窗」返回本轮明细与对话累计两层聚合。
+- **内部/工具调用单独分组**：`list` 同时返回 `toolCalls`（`model` 为 fake/unknown/空 或 `dsh*` 内部路由，如 `dsh2shell-*`/`fake`），概览「消耗明细」下方新增可折叠的「工具调用（内部）」分组（默认收起，显示 服务商·模型 / 调用数 / 总消耗），与真实模型调用分开。
+- **语言跟随系统设置**：移除「用量与消耗」头部的中英文切换按钮，语言完全跟随宿主「通用设置 → 语言」，切换即时生效（`locale` 服务 `subscribe` + `locale/change`）；不再写 `localStorage`（`dsh-usage-lang`），旧残留值不再覆盖系统语言；「会话 / 设置」标签页名改为按渲染时读取的 thunk，随语言切换实时更新。
+- **移动端适配**：表格在 ≤900px 贴合屏宽（`min-width:0 !important`）、不再出现横向滑条；宽表折叠中间列；弹窗统计卡与按模型卡片随宽度自适应；弹窗滚动条外观隐藏（仍可滚轮滚动）。
+- **英文适配补全**：「高峰 / 空闲时段说明」整块与 19 个遗漏键（当前 · 工作日/周末时段、工作日高峰卡片提示、用量日历悬停提示、价格表两段长说明等）补上英译。
 
-## Unreleased（社区贡献候选）：英文界面 / i18n
+### 修复 / Fixes
 
-- **新增英文界面（i18n 层）**（PR #7，[@ayleen](https://github.com/ayleen)）：Web 面板全部 UI 文案接入轻量 i18n——以原中文文案为键、内置英译词典（260 条主词典 + 22 条余额键值对）；按浏览器语言自动选择（中文浏览器保持中文，其余默认英文），「用量与消耗」头部新增切换按钮，即时生效并保存于 localStorage。
-- **响应式语言切换**：语言以 React 状态注入 Usage / Balance 两个面板（`useLang` 订阅机制），切换不依赖任何网络请求；SUBTABS 等集合标签改为渲染时翻译。外部标签页名（slots label）在注册时定格，页面刷新后更新——按钮 tooltip 与两份 README 均已注明。
-- **瞬态提示文案同样响应式**：导出 / 导入 / 目录选择等状态消息与客户端校验错误改为语义描述符（`{ k }` / `{ k, tail }` / `{ seq }` / `errorKey`）存储，渲染时才翻译，切换语言后既有提示立即跟随当前语言。
-- **缺失凭据错误不再泄漏内部键**：`PROVIDERS.credentialHint` 更名为 `credentialHintKey`；DeepSeek 未配置凭据的错误改由技术凭据名生成（如「未找到 DEEPSEEK_API_KEY，请配置后重试」），新增 `missingCredentialError` 助手与单测断言错误中不含 `hint.*`。
-- **测试与调试钩子**：新增 `exports.__i18n`（t / tb / msgText / setLang / 日期格式化）与 `test/client-i18n.test.js` —— 覆盖语言即时切换、localStorage 持久化跨挂载生效、日期 / 星期渲染、瞬态消息双语文案、余额语义键双语全覆盖。
-- **余额查询改用语义化字段**：host（`lib/balance.js`）不再返回中文展示文案，改为 `labelKey / hintKey / meaningKey / sourceNoteKey / balanceLabelKey` 等稳定键，双语文案集中到客户端；成功响应负载不含中文展示文本（新增单测覆盖）。错误消息本期保持中文，拟后续跟进。
-- **本地化日期与星期**：新增 `dayLabel / fmtMonthLabel / dailyStatsTitle / weekdayLabels`，中文保持 `2026年8月22日` 习惯格式，英文输出 `Aug 22, 2026`、`August 2026` 与 Mo–Su 星期表头。
-- **实现范围**：改动 `lib/client.js` 与 `lib/balance.js`；PNG 报告、日历悬停提示等 canvas 文案同步支持英文；与数据相关的比较（如合计行 key `"合计"`）保留原文不受翻译影响。宿主端日志 / 错误文案保持中文，拟后续跟进。
+- **弹窗不可见**：对话树祖先的 transform 会破坏 `position: fixed`，改用 `react-dom` 平台种子的 `createPortal` 把弹窗挂到 `document.body`。
+- **整场会话聚合**：按 `messageId` 查找消息完成时间改为读取 `data.finalNode.messageId` / `data.closing.finalNode.messageId`，时间窗正确生效（不再把整场对话圈进来）。
+- **语言切换失效**：不再持久化语言选择，宿主设置切回中文即时恢复、无需刷新。
+- **表格显示**：宽表 `width:max-content`，列按内容撑开、外层容器横向滚动，数字不再被压到换行/重叠。
+
+### 测试 / Tests
+
+- 周末计费规则回归测试（issue #9）：宿主 `isPeakAt`（新增 `test/period.test.js`）+ 客户端 `isPeakNow` / `periodNow`（`test/client-i18n.test.js`），覆盖 issue 的 5 个时刻向量、生效时间边界、峰段窗口左右端点。
+- i18n 测试改为覆盖「跟随宿主语言服务实时切换」「旧 localStorage 值不再覆盖宿主语言」。
+- 全部 27/27 通过。
 
 ---
 
