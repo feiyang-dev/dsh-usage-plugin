@@ -2,3 +2,8 @@
 # repository Contributors graph and git blame attribute them correctly.
 # ayleen = Ruslan Musakalimov (GitHub id 4070972), the PR #7 i18n author.
 ayleen <4070972+ayleen@users.noreply.github.com> Ruslan R. Musakalimov <gitlab@letsweb.me>
+# wuhuqif176 = neko_null (GitHub id 82660709), the PR #8 百炼 (Qwen Token Plan) author.
+# GitHub's release-page contributor widget reads .mailmap, so both commits under
+# wuhuqif176 and neko_null must resolve to ONE canonical identity to be credited.
+wuhuqif176 <82660709+wuhuqif176@users.noreply.github.com> neko_null <82660709+wuhuqif176@users.noreply.github.com>
+wuhuqif176 <82660709+wuhuqif176@users.noreply.github.com> wuhuqif176 <wuhuqif176@users.noreply.github.com>
