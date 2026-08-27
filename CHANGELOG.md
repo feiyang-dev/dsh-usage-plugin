@@ -8,9 +8,20 @@
 
 ---
 
+## Unreleased（社区贡献候选）：百炼（Qwen）Token Plan 配额查询
+
+- **「剩余余额查询」新增「百炼 Token Plan」配额查询**（`lib/balance.js` / `lib/index.js` / `lib/client.js`，PR #8，@wuhuqif176）。
+- 复用百炼 CLI（`bl`）的「控制台登录」OAuth token（`~/.bailian/config.json` 的 `access_token`），**不需要阿里云 AccessKey / BSS 权限**，权限面远小于 `AliyunBSSReadOnlyAccess`。
+- Host 侧新增 `console-token` 查询模式：读取 `~/.bailian/config.json` → 调百炼门户网关 `zeldaHttp.apikeyMgr./tokenplan/personal/api/v2/usage` → 返回配额已用百分比与重置时间。
+- 客户端渲染：百分比按官方 CLI 的 `round(x*1000)/10` 格式（如 `20.6%`），重置时间显示本地日期 + 相对倒计时；「本周配额」卡片用连续线段展示开始 / 结束日期（开始到今天深蓝、今天到结束浅色），今天节点随日期动态移动，窗口宽度随浏览器缩放自适应。
+- 说明：展示的是**配额已用百分比**，不是剩余 token 数；百炼 Token Plan 实际没有 5 小时配额（相关 UI 已移除）。
+- 新增依赖 `undici`（`package.json`）。
+
+---
+
 ## Unreleased（社区贡献候选）：英文界面 / i18n
 
-- **新增英文界面（i18n 层）**：Web 面板全部 UI 文案接入轻量 i18n——以原中文文案为键、内置英译词典（260 条主词典 + 22 条余额键值对）；按浏览器语言自动选择（中文浏览器保持中文，其余默认英文），「用量与消耗」头部新增切换按钮，即时生效并保存于 localStorage。
+- **新增英文界面（i18n 层）**（PR #7，[@ayleen](https://github.com/ayleen)）：Web 面板全部 UI 文案接入轻量 i18n——以原中文文案为键、内置英译词典（260 条主词典 + 22 条余额键值对）；按浏览器语言自动选择（中文浏览器保持中文，其余默认英文），「用量与消耗」头部新增切换按钮，即时生效并保存于 localStorage。
 - **响应式语言切换**：语言以 React 状态注入 Usage / Balance 两个面板（`useLang` 订阅机制），切换不依赖任何网络请求；SUBTABS 等集合标签改为渲染时翻译。外部标签页名（slots label）在注册时定格，页面刷新后更新——按钮 tooltip 与两份 README 均已注明。
 - **瞬态提示文案同样响应式**：导出 / 导入 / 目录选择等状态消息与客户端校验错误改为语义描述符（`{ k }` / `{ k, tail }` / `{ seq }` / `errorKey`）存储，渲染时才翻译，切换语言后既有提示立即跟随当前语言。
 - **缺失凭据错误不再泄漏内部键**：`PROVIDERS.credentialHint` 更名为 `credentialHintKey`；DeepSeek 未配置凭据的错误改由技术凭据名生成（如「未找到 DEEPSEEK_API_KEY，请配置后重试」），新增 `missingCredentialError` 助手与单测断言错误中不含 `hint.*`。

@@ -300,6 +300,8 @@ pnpm dsh web
 
 ## Acknowledgements
 
+- **[@ayleen](https://github.com/ayleen)**: implemented the full English UI layer (i18n) with reactive language switching, and moved balance presentation to semantic keys ([#7](https://github.com/feiyang-dev/dsh-usage-plugin/pull/7)).
+- **[@wuhuqif176](https://github.com/wuhuqif176)**: added the Bailian (Qwen) Token Plan quota query to the balance panel ([#8](https://github.com/feiyang-dev/dsh-usage-plugin/pull/8)).
 - **[@Martin-soaring-dev](https://github.com/Martin-soaring-dev)**: prepared the plugin for public contribution (packaging, plugin-contract checks, docs & CI) and submitted the contribution branch that became the basis for the open-source releases ([#6](https://github.com/feiyang-dev/dsh-usage-plugin/pull/6)).
 - **[@mumuer1024](https://github.com/mumuer1024)**: reported and diagnosed the persistence-path drift across workspaces (history "disappearing" / counted as 0) and proposed storing data in a fixed, dedicated directory ([#4](https://github.com/feiyang-dev/dsh-usage-plugin/issues/4)).
 - **[@liu3734](https://github.com/liu3734)**: reported and diagnosed the Windows-only path handling / spawn issues on macOS (POSIX) and proposed the cross-platform fix ([#1](https://github.com/feiyang-dev/dsh-usage-plugin/issues/1)).

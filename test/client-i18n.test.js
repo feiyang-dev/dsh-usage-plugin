@@ -21,6 +21,8 @@ async function loadClient(opts) {
     setItem(k, v) { this._d[k] = String(v) }
   }
   globalThis.window = { __ModuleLoader__: null, localStorage: storage }
+  // 让默认语言检测确定化：无论运行机器系统语言如何，未显式持久化语言时都按英文环境处理
+  Object.defineProperty(globalThis, 'navigator', { value: { language: 'en-US' }, configurable: true, writable: true })
   let captured = null
   window.__ModuleLoader__ = { load(d) { captured = d } }
   const url = pathToFileURL(CLIENT).href + '?mount=' + (++mounts) // unique: force re-eval

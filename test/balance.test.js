@@ -10,7 +10,7 @@ import {
 
 test('lists every balance provider and defaults to DeepSeek', () => {
   assert.deepEqual(providerList().map((p) => p.id), [
-    'deepseek', 'siliconflow', 'digitalocean', 'amd-gpu-cloud'
+    'deepseek', 'siliconflow', 'digitalocean', 'amd-gpu-cloud', 'qwen-token-plan'
   ])
   assert.equal(getBalanceProvider().id, 'deepseek')
   assert.equal(getBalanceProvider('unknown'), null)
@@ -160,4 +160,29 @@ test('digitalocean maps account kinds to semantic labels', () => {
   assert.equal(credit.balanceLabelKey, 'bal.credit')
   assert.equal(due.balanceLabelKey, 'bal.due')
   assert.equal(settled.balanceLabelKey, 'bal.settled')
+})
+
+test('normalizes Qwen Token Plan quota usage (progress data)', () => {
+  const res = parseBalanceResponse('qwen-token-plan', JSON.stringify({
+    per1WeekPercentage: 0.20169764399999998,
+    per1WeekResetTime: 1787897100000
+  }))
+  assert.equal(res.ok, true)
+  assert.equal(res.provider, 'qwen-token-plan')
+  assert.equal(res.kind, 'quota-usage')
+  assert.equal(res.details.length, 0)
+  assert.ok(res.qwenQuota)
+  // 进度条比例：0.2017 -> 约 0.2017
+  assert.ok(Math.abs(res.qwenQuota.ratio - 0.201697644) < 0.001)
+  assert.equal(res.qwenQuota.usedPercent, '20.2%')
+  assert.match(res.qwenQuota.weekEnd, /2026-08-28/)
+  assert.match(res.qwenQuota.weekStart, /2026-08-21/)
+  assert.equal(res.qwenQuota.ratioLabel, '已用 20.2%')
+  assert.match(res.sourceNote, /1 周配额已用进度/)
+})
+
+test('rejects a Qwen Token Plan response with no quota fields', () => {
+  const res = parseBalanceResponse('qwen-token-plan', JSON.stringify({ foo: 1 }))
+  assert.equal(res.ok, false)
+  assert.match(res.error, /没有可识别的配额字段/)
 })
