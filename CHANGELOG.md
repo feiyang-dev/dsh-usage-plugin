@@ -10,6 +10,25 @@
 
 ## v1.14.0 (2026-08-27)
 
+### What’s New in v1.14.0 (English)
+
+This release focuses on **per-message token insights**, cleaner cost breakdowns, **system-level language sync**, and **mobile adaptation**.
+
+**Per-message “Turn tokens” popup** — after a turn finishes, the assistant message’s footer action row gains a **“Turn tokens”** button. Clicking it opens a `Token Details` popup with two layers:
+- **Conversation total**: the whole session’s total tokens, total cost, run time and cache-hit rate;
+- **This turn**: this output’s tokens, turn tokens, turn cost, turn duration, turn cache-hit rate, a cache-hit bar, and per-model cards (each model’s input·miss / cache hit / output (+ reasoning) plus its peak/off-peak cost split).
+Durations are shown as `Xm Ys`. Every usage record is tagged with the conversation (`sessionId`), so per-turn and per-conversation stats are computed independently.
+
+**Internal/tool calls grouped separately** — internal/placeholder calls (e.g. `dsh2shell-*` with model `fake`) no longer clutter the model cost tables; they are collected in a collapsible “Tool calls (internal)” group below the cost breakdown.
+
+**Language follows the harness setting** — the in-panel language toggle is removed; the plugin now follows the harness’s own language setting (General Settings → Language) instantly, with no `localStorage` override (fixes the “still English after switching back” bug).
+
+**Mobile adaptation** — tables fit the screen width on ≤900px (no horizontal scrollbar), wide tables collapse the middle columns, and the popup adapts to the viewport.
+
+**Also fixed** — the popup previously rendered off-screen inside transformed ancestors (now portaled to `document.body`); per-message windowing now reads the message’s real step boundaries; wide tables no longer wrap numbers into unreadable lines.
+
+---
+
 ### 新增 / New
 
 - **消息底部「本轮 token」弹窗（两层统计）**：多轮完成后，助手消息底部操作行（复制 / 点赞 / 点踩 / 回复 那一排）新增「本轮 token」按钮，点击弹出 `Token 明细`：
