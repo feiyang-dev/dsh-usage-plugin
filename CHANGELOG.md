@@ -32,6 +32,15 @@
 
 ---
 
+## v1.13.1 (2026-08-27)
+
+### 文档 / Docs
+
+- **补全贡献者名单**（`package.json` contributors）：新增 [@ayleen](https://github.com/ayleen)（PR #7 英文界面）与 [@wuhuqif176](https://github.com/wuhuqif176)（PR #8 百炼配额）。
+- **新增 `.mailmap`**：把 PR #7 提交作者 `Ruslan R. Musakalimov <gitlab@letsweb.me>` 映射到 GitHub 账号 @ayleen，使仓库 Contributors 图与 git blame 正确归属历史提交。
+
+---
+
 ## v1.13.0 (2026-08-23)
 
 ### 新增 / New
