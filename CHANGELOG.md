@@ -32,6 +32,21 @@
 
 ---
 
+## v1.13.0 (2026-08-23)
+
+### 新增 / New
+
+- **英文界面（i18n 层）**（社区贡献，[@ayleen](https://github.com/ayleen)，[PR #7](https://github.com/feiyang-dev/dsh-usage-plugin/pull/7)）：Web 面板全部 UI 文案接入轻量 i18n——以原中文文案为键、内置英译词典；按浏览器语言自动选择（中文浏览器保持中文，其余默认英文），「用量与消耗」头部新增切换按钮，即时生效并保存于 localStorage。余额查询改为语义化字段（host 不再返回中文展示文案），缺失凭据错误不再泄漏内部键；日期 / 星期本地化（中文 `2026年8月22日`，英文 `Aug 22, 2026` 与 Mo–Su 表头）；瞬态提示与客户端校验错误渲染时翻译。
+- **百炼（Qwen）Token Plan 配额查询**（社区贡献，[@wuhuqif176](https://github.com/wuhuqif176)，[PR #8](https://github.com/feiyang-dev/dsh-usage-plugin/pull/8)）：「剩余余额查询」新增「百炼 Token Plan」子页签——复用百炼 CLI（`bl`）的控制台 OAuth token（`~/.bailian/config.json`），无需阿里云 AccessKey；展示本周配额已用百分比（进度条 + `已用 xx.x%`）与本周开始 / 结束日期（连续线段，今天节点随日期动态移动）。新增依赖 `undici`。
+- **本地改进**：消耗明细表顶部与底部各渲染一份分页条（长列表翻页更顺手）；DeepSeek 系 provider 未单独上报 `cacheWriteTokens` 时，「缓存写入」列改用未命中 token 数（`inputTokens`）兜底显示，避免长期为空。
+
+### 致谢 / Acknowledgements
+
+- **[@ayleen](https://github.com/ayleen)**：实现英文界面与响应式语言切换（PR #7）。
+- **[@wuhuqif176](https://github.com/wuhuqif176)**：实现百炼 Token Plan 配额查询（PR #8）。
+
+---
+
 ## v1.12.2 (2026-08-23)
 
 ### 修复 / Fixed
