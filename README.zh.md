@@ -6,7 +6,6 @@
 
 [GitHub](https://github.com/feiyang-dev/dsh-usage-plugin) · [npm](https://www.npmjs.com/package/@feiyang666/dsh-usage-plugin) · MIT License
 
-> 📄 **本版本英文发布说明（What’s New in v1.14.0）**：[RELEASE_NOTES.md](./RELEASE_NOTES.md)
 
 **由开发者制作的 DeepSeek Harness 插件** —— 记录每一次模型调用的 token 用量与消耗，支持峰谷计费、余额查询、日历热力图与 CSV / JSON / PNG 导出。
 
@@ -310,6 +309,10 @@ pnpm dsh web
 - **[@Martin-soaring-dev](https://github.com/Martin-soaring-dev)**：筹备了插件开源贡献（打包、插件契约校验、文档与 CI），并提交贡献分支，成为后续开源版本的基础（[#6](https://github.com/feiyang-dev/dsh-usage-plugin/pull/6)）。
 - **[@mumuer1024](https://github.com/mumuer1024)**：报告并定位了持久化路径随会话工作区漂移导致历史数据"消失/统计为 0"的问题，提出把数据写到固定专用目录的方案（[#4](https://github.com/feiyang-dev/dsh-usage-plugin/issues/4)）。
 - **[@liu3734](https://github.com/liu3734)**：报告并定位 macOS（POSIX）下路径处理与 spawn 的 Windows 专用问题，提出跨平台修复方案（[#1](https://github.com/feiyang-dev/dsh-usage-plugin/issues/1)）。
+
+## 更新日志
+
+- [CHANGELOG.md](./CHANGELOG.md) —— 每次发布的详细更新内容。
 
 ## 许可
 

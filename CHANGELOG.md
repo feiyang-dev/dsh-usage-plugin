@@ -10,8 +10,6 @@
 
 ## v1.14.0 (2026-08-27)
 
-> 📄 本版本英文发布说明（English release notes）：[RELEASE_NOTES.md](./RELEASE_NOTES.md)
-
 ### 新增 / New
 
 - **消息底部「本轮 token」弹窗（两层统计）**：多轮完成后，助手消息底部操作行（复制 / 点赞 / 点踩 / 回复 那一排）新增「本轮 token」按钮，点击弹出 `Token 明细`：
@@ -277,6 +275,3 @@
 - CSV / JSON / PNG 长图导出（最新在前，最多 2000 条，超出提示），支持自定义导出目录（原生目录选择器）与「打开所在目录」。
 - JSON / CSV 导入合并，按时间去重。
 - Windows / macOS / Linux 跨平台路径与原生操作适配；启动诊断日志 `dsh-usage-boot.log`。
----
-
-📄 **英文发布说明入口（English release notes）**：[RELEASE_NOTES.md](./RELEASE_NOTES.md)
