@@ -6,6 +6,8 @@
 
 [GitHub](https://github.com/feiyang-dev/dsh-usage-plugin) · [npm](https://www.npmjs.com/package/@feiyang666/dsh-usage-plugin) · MIT License
 
+> 📄 **本版本英文发布说明（What’s New in v1.14.0）**：[RELEASE_NOTES.md](./RELEASE_NOTES.md)
+
 **由开发者制作的 DeepSeek Harness 插件** —— 记录每一次模型调用的 token 用量与消耗，支持峰谷计费、余额查询、日历热力图与 CSV / JSON / PNG 导出。
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)

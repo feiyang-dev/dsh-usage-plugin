@@ -71,7 +71,8 @@
     "cordis.patch.yml",
     "README.md",
     "README.zh.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "RELEASE_NOTES.md"
   ],
   "scripts": {
     "wire": "node scripts/wire.js",
