@@ -8,6 +8,26 @@
 
 ---
 
+## v1.14.1 (2026-08-29)
+
+### 修复 / Fixed
+
+- **中断调用兜底记录，使「调用次数」与 DeepSeek 官方后台对齐**（`lib/index.js`）：harness 在流被中断（aborted / error / timeout / 用户停止生成）时不会产出 `usage` chunk（usage 只在收到 `[DONE]` 哨兵后才由 adapter yield），导致这类调用此前完全不被插件记录——而官方后台仍会把该次请求计入「API 请求次数」并按实际 token 计费，于是插件统计的调用次数长期低于官方（如 8 月 27 日 985 vs 1033）。现在无 usage 但确为真实模型调用（通过 `isRealCall`，排除内部 `dsh2shell-*`/`fake`）的流，会在 `observe()` 的 `finally` 里补记一条 **0-token 的「中断调用」**（新增 `interrupted: true` 字段，`finishReason` 如实标记 `aborted`/`error`/`timeout`）。token 与费用均为 0，不会虚增消耗；调用次数与官方口径一致。
+- **面板透明展示中断调用**（`lib/client.js`）：
+  - 概览「调用次数」卡片新增 `· 中断 N（未计费）` 提示；
+  - 缓存命中列表与用量日历当日明细中，中断调用行在模型名旁显示红色「中断」徽标、结束原因红色标注、消耗列显示 `—`；
+  - PNG 导出报告同样在模型名旁标注「中断」、消耗列显示 `—`；
+  - 结束原因新增 `aborted → 已中断 / Interrupted`、`timeout → 超时 / Timeout` 映射（中英双语）。
+  - **用量面板顶部新增「本地统计与官方后台的差异」提示横幅**：说明本面板统计的是插件本地捕获的调用（官方价格 + 峰谷时段），与官方后台（platform.deepseek.com 用量页）相比金额可能更低——① 中断/出错/超时的调用官方仍按实际 token 计费而插件按 0 记录；② 账号下其他 API Key（其它应用/脚本）的调用不经过 DeepSeek Harness，官方包含而插件不包含；③ 精确对账可导出官方月度账单 CSV 对比。检测到中断调用时额外显示「当前记录中有 N 次中断调用（未计费）」红字提示。
+- **持久化与 API 透传 `interrupted`**（`lib/index.js`）：`normalizeRecord` / `projectRecord` 均保留该字段，重启恢复、`/usage/api` list 输出、JSON 导出一致。
+
+### 测试 / Tests
+
+- 新增 `test/interrupt.test.js`：验证中断兜底仅记录真实模型调用（DeepSeek 官方 / 第三方真实 provider），内部 `fake`/`dsh*` 占位调用永不兜底记录。
+- 全部 30/30 通过。
+
+---
+
 ## v1.14.0 (2026-08-27)
 
 ### 新增 / New
