@@ -8,6 +8,86 @@
 
 ---
 
+## v1.16.5-local.8（本地构建 / Local build）
+
+### 修复 / Fixed
+
+- **余额页的 provider 标签被均匀铺满整行**（lib/client.js）：v1.16.5-local.7 为把「帮助与说明」放到子页签栏右侧，给 \`st.subtabBar\` 加了 \`justifyContent: "space-between"\`。用量页的子页签外层包了 \`st.subtabGroup\`（两个子元素，正常），而余额页的 \`providers.map()\` 产生的是**多个直接子元素**，被 \`space-between\` 分散到整行两端；单个子元素时该属性又无效果。
+  - 现把余额页的标签同样包进 \`st.subtabGroup\`，两类页面的子页签栏结构一致：左侧成组靠左排列，右侧留给可选按钮。
+  - 用 headless Chrome 实测两种结构确认：包组后整组宽度紧凑（x=91–668），未包组时五个按钮分别落在 x=91/345/604/872/1165（铺满整行）。
+
+---
+
+## v1.16.5-local.7（本地构建 / Local build）
+
+### 界面 / UI
+
+- **「帮助与说明」移到子页签栏右侧**（lib/client.js）：该按钮原先独占一行（`st.calBar, marginTop: 8`），位于「概览 / 用量日历 / 缓存命中列表 / 价格表」子页签栏的下方，占用一整行高度。
+  - 现把它并入子页签栏同一行、靠右显示（`st.subtabBar` 增加 `justifyContent: "space-between"`）；
+  - 子页签外包一层 `st.subtabGroup`，窄屏换行时页签仍成组；
+  - 按钮功能不变：点击展开/收起说明面板，中断调用数量角标照常显示。
+
+---
+
+## v1.16.5-local.6（本地构建 / Local build）
+
+### 界面 / UI
+
+- **「当前范围」说明行的间距与卡片对齐**（lib/client.js）：该行位于日期筛选栏与「本月已消耗」卡片之间，间距原为 `marginTop: 8`，与卡片使用的 `CARD_GAP = 10` 不一致。现统一为 `CARD_GAP`，概览页顶部自日期栏往下的纵向间距全部一致（当前范围行 / 本月已消耗 / 总消耗一行 / 输入·未命中一行）。
+
+---
+
+## v1.16.5-local.5（本地构建 / Local build）
+
+### 界面 / UI
+
+- **对齐概览页三处卡片间距**（lib/client.js）：横向并排卡片间距原本是 `gap: 10`，而纵向三处来源各不相同、彼此也不相等——「本月已消耗 → 总消耗」与「总消耗 → 输入·未命中」此前**没有设置间距**（块级流默认 0，视觉上的空隙来自卡片自身 padding），而「范围说明 → 本月已消耗」是 `heroUsage.marginTop: 12`。
+  - 新增常量 `CARD_GAP = 10`，与横向 `gap: 10` 取同一数值；
+  - 三处纵向间距统一为 `CARD_GAP`：hero 上方、`bigCards`（总消耗一行）、`cards`（输入·未命中一行）；
+  - 后续要同时调整卡片横竖间距，只改 `CARD_GAP` 一处。
+
+---
+
+## v1.16.5-local.4（本地构建 / Local build）
+
+### 修复 / Fixed
+
+- **隐藏宽度调整线时不得改动布局**（lib/client.js）：上一版用 \`display:none !important\` 隐藏调整线，并把标记类加在祖先容器上——前者会把元素盒从布局中移除，后者会波及容器与其它元素，导致用量/余额页的布局被改动。现改为**只改这两个元素自身的 inline style**：
+  - 用 \`visibility: hidden\` 而不是 \`display: none\`：visibility 保留盒模型，布局与 harness 原样逐像素一致，只是不可见；
+  - 不注入全局 CSS、不给任何祖先加类名；
+  - 同时置 \`pointer-events: none\`，避免看不见的线仍拦截拖拽；
+  - 卸载时逐一还原原值。
+- 单测新增布局护栏：断言实现中不得出现 \`display:none !important\` 与 \`classList.add\`，且必须使用 visibility/pointer-events。
+
+---
+
+## v1.16.5-local.3（本地构建 / Local build）
+
+### 修复 / Fixed
+
+- **重做 BUG1 的修复**（lib/client.js，上一版 1.16.5-local.2 的修法无效）：上一版只改 localStorage，但 harness 的 per-session store 语义是「挂载时读一次 localStorage，之后每次变更写回」，**渲染读的是内存状态**（useStore(s => s.view)），因此改存储不会改变当前渲染，store 下次变更还会把旧值写回覆盖。现在改为用 harness 传给每个 conversation.view 的 **openView prop**（内部走 activateView + store.openView，同时更新内存与持久化）。
+  - 复位时机放在**组件卸载**且**会话已切换**时：手动点页签同样会让组件挂载/卸载，若在挂载时复位会把用户立刻弹回对话、永远打不开面板。卸载时用挂载前的会话 id 与当前 id 比对，即可精确区分"切走会话"与"切换页签"。
+  - 只复位本插件写入的两个 view id；内置「轨迹」页签的偏好保持不变。
+  - 单测补齐：新增"同一会话内切换两个插件页签不得弹回对话"这条关键防护（上一版缺此用例才假绿）。
+- **用量/余额页显示对话正文的宽度调整线**（lib/client.js）：harness 在 phase === "active" 时给每个 conversation.view 都渲染一对 WidthHandle，且它们是视图容器的**兄弟节点**（不在插件容器内，普通后代选择器无效）。现在从插件容器向上找到包含调整线的最近祖先并加标记类，CSS 用 [class*=widthHandle] 属性选择器匹配（不依赖打包后的哈希类名），卸载时移除标记。
+
+---
+
+## v1.16.5-local.2（本地构建 / Local build）
+
+### 修复 / Fixed
+
+- **切走再切回会话时停留在插件页签**（lib/client.js）：harness 的 conversation.view 选择是**按会话持久化**的（localStorage 键 dsh.conversation.<sessionId>，见 dsh-client-ui-conversation 的 readConversationViewPreference / restoreView），切回某会话时会恢复上次停留的页签，于是停在「用量」或「余额」而不是对话界面。现在插件订阅会话切换，在**离开**会话时把自己注册的那两个 view id 复位为 chat。只动自己注册的 id，「轨迹」等内置页签与用户对它们的选择不受影响；草稿等同名存储字段原样保留。
+- **刷新 / 扫描按钮无反馈**（lib/client.js）：新增进行中状态（按钮禁用并显示「刷新中…」「扫描中…」）、完成提示（「已刷新」）与失败提示，点击后不再有"不知道点上没有"的观感。
+- **扫描按钮直接执行**：改为先弹确认框，说明该模式的影响面（当前工作区 / 全部工作区 / 深扫的重复风险），确认后才执行。
+- **移除「清空」按钮**（按用户要求）：头部只保留「刷新」「扫描历史」；已无引用的 doClear 与对应词条一并删除。后端 clear action 保留，导入等既有路径不受影响。
+
+### 测试 / Tests
+
+- 新增 test/view-reset.test.js（5 例）：离开会话时复位偏好且保留草稿、内置 trajectory 页签不被触碰、无偏好时不凭空写入、存储损坏不抛错、缺少 sessions 服务时降级激活。
+
+---
+
 ## v1.16.5-local.1（本地构建 / Local build）
 
 > 基于 npm 上发布的 **v1.16.5**（GitHub 仓库仍停在 v1.14.1）叠加以下本地改动。
