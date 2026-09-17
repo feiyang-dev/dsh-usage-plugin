@@ -1,5 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   SCAN_ORIGIN,
   SCAN_CACHE_VERSION,
@@ -121,21 +124,31 @@ test('reduceSessionEvents attributes usage to provider/model with request/header
   assert.equal(records[1].model, 'deepseek-ai/deepseek-v4-pro')
 })
 
-test('cacheWriteTokens falls back to uncached input like the live probe does', () => {
+test('cacheWriteTokens stores only the reported value (no miss fallback)', () => {
   const { records } = reduceSessionEvents([
     message(0, 1, 1, 1, { inputTokens: 500, outputTokens: 5, cacheReadTokens: 100 })
   ], { sessionId: 's' })
-  assert.equal(records[0].cacheWriteTokens, 500, 'DeepSeek 系不上报 cacheWrite，用未命中输入兜底')
+  assert.equal(records[0].cacheWriteTokens, 0, 'DeepSeek 系不上报 cacheWrite，记 0；兜底展示由客户端负责')
   const explicit = reduceSessionEvents([
     message(0, 1, 1, 1, { inputTokens: 500, outputTokens: 5, cacheWriteTokens: 42 })
   ], { sessionId: 's' })
   assert.equal(explicit.records[0].cacheWriteTokens, 42, '上报了就按上报值')
 })
 
+test('probe and scan source never fabricate cacheWrite from miss again', () => {
+  // 回归护栏：旧版用 inputTokens 兜底伪造 cacheWrite，导致四桶合计双计未命中，
+  // 「总 token」比宿主状态栏大出累计未命中数。此处直接检查源码防止复发。
+  const lib = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'lib')
+  const host = fs.readFileSync(path.join(lib, 'index.js'), 'utf8')
+  const scan = fs.readFileSync(path.join(lib, 'scan.js'), 'utf8')
+  assert.equal(/cacheWriteTokens\s*\|\|\s*(usage\.)?inputTokens/.test(host), false, '探针不得用未命中兜底 cacheWrite')
+  assert.equal(/usage\.cacheWriteTokens\)\s*\|\|\s*num\(sample\.usage\.inputTokens\)/.test(scan), false, '扫描不得用未命中兜底 cacheWrite')
+})
+
 test('scanRecordKey keeps rescanning idempotent via turn/step', () => {
   const first = message(4, 1000, 3, 2, { inputTokens: 1 }, 'p', 'm')
   const scanned = reduceSessionEvents([first], { sessionId: 's' }).records
-  assert.equal(scanRecordKey(scanned[0]), 's|3|2')
+  assert.equal(scanRecordKey(scanned[0]), 's|slot4')
 
   const records = []
   const one = mergeScannedRecords(records, scanned)
@@ -162,16 +175,16 @@ test('mergeScannedRecords never overwrites a live probe record by default', () =
 })
 
 test('deep mode absorbs the probe row for the same call and keeps its extra fields', () => {
-  const records = [probeRecord(1_000_000, 'deepseek-v4-pro', 's1', { purpose: 'compaction', reasoningTokens: 12 })]
+  const records = [probeRecord(1_000_000, 'deepseek-v4-pro', 's1', { purpose: '', inputTokens: 2112, outputTokens: 351, cacheReadTokens: 9472, cacheWriteTokens: 0, reasoningTokens: 12, usdCnyRate: 7.1, fxDate: '2026-09-01' })]
   const scanned = reduceSessionEvents([
-    message(0, 1_000_400, 4, 1, { inputTokens: 2112, outputTokens: 351, cacheReadTokens: 9472 }, 'deepseek-official', 'deepseek-v4-pro')
+    message(0, 1_000_400, 4, 1, { inputTokens: 2112, outputTokens: 351, cacheReadTokens: 9472, reasoningTokens: 12 }, 'deepseek-official', 'deepseek-v4-pro')
   ], { sessionId: 's1' }).records
   const stats = mergeScannedRecords(records, scanned, { deep: true })
   assert.deepEqual({ added: stats.added, replaced: stats.replaced, absorbed: stats.absorbed }, { added: 0, replaced: 0, absorbed: 1 })
   assert.equal(records.length, 1, '探针行被扫描行吸收，不产生重复')
   assert.equal(records[0].origin, SCAN_ORIGIN)
   assert.equal(records[0].inputTokens, 2112, 'token 以日志为准')
-  assert.equal(records[0].purpose, 'compaction', '探针独有的字段保留')
+  assert.equal(records[0].usdCnyRate, 7.1, '历史汇率保留')
   assert.equal(records[0].reasoningTokens, 12)
   assert.equal(records[0].turn, 4)
 })
@@ -366,7 +379,7 @@ test('listStoredSessions normalizes both listing shapes and degrades to list()',
 
 test('scan cache round-trips through disk shape and prunes vanished sessions', () => {
   const cache = createScanCache()
-  cache.sessions.s1 = { revision: 'r1', seq: 42, lastRoute: { provider: 'p', model: 'm' } }
+  cache.sessions.s1 = { revision: 'r1', seq: 42, lastRoute: { provider: 'p', model: 'm' }, lastSample: null }
   const restored = parseScanCache(JSON.parse(JSON.stringify(cache)))
   assert.deepEqual(restored, cache)
   assert.deepEqual(restored.sessions.s1.lastRoute, { provider: 'p', model: 'm' })
