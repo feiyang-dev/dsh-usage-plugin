@@ -8,6 +8,77 @@
 
 ---
 
+## v1.16.5-local.12（本地构建 / Local build）
+
+### 修复 / Fixed
+
+- **左下角余额一直不显示数字**（lib/client.js）：根因是探测时先用 `balanceCredentialStatus` 判断可用性，而该接口只回答"余额页能否管理此服务商的凭据"，对 DeepSeek 这类固定使用 `DEEPSEEK_API_KEY` 的服务商会返回 `ok:false`（`credential-management-unsupported`），导致 DeepSeek 被**误跳过**，后续服务商又都未配置，于是没有任何数值。
+  - 现改为**直接用 `balance` 请求的结果判定**：`ok:true` 且能解析出金额即命中；失败（如 `missing-credential`）则跳到下一个。命中后立即停止。
+  - 已用运行中的服务实测：DeepSeek 返回 `288.73`，确认可命中。
+
+### 新增 / New
+
+- **余额页新增「侧边栏设置」**（lib/client.js）：位于余额页工具栏（与用量页「帮助与说明」同一位置），展开后选择左下角「余额」入口显示哪个服务商的余额。
+  - 选项：**自动（取靠前的可用者）** + 四个服务商（AMD GPU Cloud 标记为不可查询并禁用）。
+  - 选择写入 `localStorage`（键 `dsh-usage-plugin.sidebarProvider`），并通过订阅广播让侧边栏**立即重新取数**，无需刷新页面。
+  - 固定某个服务商时只查询它；查询失败会清空数值，避免展示上一个服务商的过期数字。
+
+### 测试 / Tests
+
+- `test/sidebar.test.js` 扩到 16 例：探测改为"直接查余额"后的跳过/命中即停/全部失败返回 null、偏好默认 `auto` 与非法值回落、偏好变更广播与退订、固定偏好只查该服务商。
+
+---
+
+## v1.16.5-local.11（本地构建 / Local build）
+
+### 变更 / Changed
+
+- **侧边栏入口：标签固定 + 单击改双击**（lib/client.js，承接 v1.16.5-local.10）：
+  - 标签**固定显示「余额」**，不再替换成服务商名；服务商名、金额与说明移到悬停提示里（提示末尾附带「双击切换到余额页」）。
+  - 跳转由**单击改为双击**：该入口主要用于查看余额数值，单击不再切换视图，避免误触把视图切走。
+  - 没有宿主导航回调时双击安全无副作用（有单测覆盖）。
+
+### 测试 / Tests
+
+- `test/sidebar.test.js` 扩到 13 例：新增"标签为固定文案而非服务商名""只绑定双击不绑定单击""缺少导航回调时双击不抛错"。
+
+---
+
+## v1.16.5-local.10（本地构建 / Local build）
+
+### 变更 / Changed
+
+- **侧边栏入口改为显示余额，点击跳转「余额」页**（lib/client.js，承接 v1.16.5-local.9）：
+  - **显示规则**：按余额页标签顺序（DeepSeek → SiliconFlow → DigitalOcean → 百炼 Token Plan）**串行**探测，展示**第一个"凭据已配置且成功查到余额"**的服务商；多个都可用时取**靠前**的那个。AMD GPU Cloud 无公开余额端点，直接跳过。都不满足时不显示金额，只保留入口。
+  - 探测前先问 `balanceCredentialStatus`，未配置就跳过，**不会为未配置的服务商发上游请求**；命中后立即停止，不继续查后面的。
+  - 金额按币种加符号（¥ / $）；百炼 Token Plan 是配额而非金额，显示已用百分比（后端给的是形如 `"39.7%"` 的字符串，原样透出）。
+  - **点击跳转**：调用宿主注入给 `conversation.view` 的 `openView("balance-view")` 句柄即时切换；同时写入该会话的持久化视图偏好，保证下次进入该会话直接落在余额页。
+  - 句柄做了会话归属校验：**不会把别的会话切走**（该场景有单测覆盖）。
+  - 刷新周期 60 秒。
+
+### 测试 / Tests
+
+- `test/sidebar.test.js` 扩到 10 例：新增余额字段归一（含已带符号、回退 balance、百分比字符串）、探测优先级（跳过未配置 / 多个可用取靠前 / 命中即停 / 全未配置返回 null）、点击切换（用句柄 / 拒绝跨会话句柄 / 无句柄时退化为写偏好）。
+
+---
+
+## v1.16.5-local.9（本地构建 / Local build）
+
+### 新增 / New
+
+- **侧边栏底部入口（「设置」上方）**（lib/client.js）：注册 harness 的 `sidebar.footer.action` 槽位（`kind: list`、`scope: root`，渲染在 `sidebar.settings` 之上），显示**本月已消耗**金额，每 30 秒随用量数据刷新。
+  - id 用本插件自己的 `usage-cost-side`（新增一格），**不复用内置 `cordis-panel` 的 id**（复用会替换该格）；`order: 10` 与内置条目并列。
+  - 展开态显示「柱状图图标 + 本月已消耗 + 金额」；侧边栏收起时自动收成圆形图标（类名叠加 `rail`，与 `dsh-client-ui-cordis` 的做法一致）。
+  - 样式在运行时注入一份 `<style id="dsh-usage-sidebar-style">`，配色走 harness 主题变量（`--dsw-alias-label-primary` / `--dsw-alias-interactive-bg-hover-solid` 等），自动适配深浅色皮肤。
+  - 数据复用现有 `POST /usage/api { action: "list" }`，按北京时间自然月汇总（与概览页「本月已消耗」同口径）。
+- 顺带修掉 `lib/client.js` 末尾 **`exports.__i18n` 重复定义两块**的遗留问题。
+
+### 测试 / Tests
+
+- 新增 `test/sidebar.test.js`（7 例）：槽位与 id 注册、`wide` 透传、展开/收起两种布局、缺省 props 容错、本月汇总只统计当月且空列表返回 0、样式只注入一次。
+
+---
+
 ## v1.16.5-local.8（本地构建 / Local build）
 
 ### 修复 / Fixed
