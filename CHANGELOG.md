@@ -8,6 +8,24 @@
 
 ---
 
+## v1.15.0 (未发布 / Unreleased)
+
+### 新增 / Added
+
+- **事后扫描（历史回填），与实时探针并存**（新增 `lib/scan.js`，`lib/index.js` 集成）：插件此前只在 `llm/stream` 实时捕获调用，因此**插件激活之前**的用量完全缺失。现在新增第二条数据通道：经 Harness 的 `ctx.sessionPersistence`（`list()` + `open(id,'read')`，兼容旧版 `listSnapshots()` / `readFrom()`）读取已落盘的事件日志，把历史 `assistant/message.data.usage` 与 v1 `assistant/chunk.data.chunk.usage` 归约成与探针同形状的记录，写入同一个 `records` 数组。两条通道互补：探针字段全但只覆盖激活后，扫描覆盖历史但缺 `purpose`/`finishReason`。
+  - **不双计**：默认扫描跳过「实时探针已记录过」的会话；记录按 `(sessionId, turn, step)` 唯一键合并，探针记录永不被扫描记录覆盖。`deep` 模式例外——按「同会话 + 同 model + 时间差 ≤ 120s」近似判定为同一次调用并合并，保留探针独有的字段。
+  - **增量且幂等**：游标 `scan-cache.json` 记录每个会话的 `revision` 与已消费的最大 seq。revision 未变 → 一次读取都不发；日志被截断/重写（游标事件消失）或 seq 不连续 → 从 seq 0 重扫，重复扫描同一段日志仍因唯一键替换而幂等。
+  - **触发方式**：插件加载 8 秒后自动对**当前工作区**做一次增量扫描（单轮最多 50 个会话，其余留给下次）；面板新增「扫描历史 / 扫描全部工作区 / 深扫（含探针已覆盖会话）」按钮；新增 `scanHistory` / `scanStatus` API action。
+  - **不直读文件**：`session.v3.jsonl.zstd` 是多帧 zstd 拼接（实测某会话 754161 字节含 478 帧），Node 的 `zstdDecompressSync` 对整文件只解得出首帧、流式解压报 `Unknown frame descriptor`；解压、v0/v1→v3 格式迁移与断尾截断全部交给 persistence 后端，插件只用服务接口。
+  - **已知局限**：被中断的调用在日志中没有 usage 事件，无法回填 token（这类记录只有实时探针能补，见 v1.14.1）。
+
+### 测试 / Tests
+
+- 新增 `test/scan.test.js`（18 例）：两条字段路径、provider/model 回退、cacheWrite 兜底、唯一键幂等、探针覆盖判定、深扫合并、增量读取与重折叠、revision 未变零读取、读失败不污染游标、工作区过滤与批次上限、两种 list 形状兼容、缓存往返与裁剪。
+- 真实日志端到端校验（42 个会话 / 12667 个事件）：扫描合计与独立基准逐字段一致（input 2523886、output 1511672），二次扫描 0 次读取，强制重扫后总量不变。
+
+---
+
 ## v1.14.1 (2026-08-29)
 
 ### 修复 / Fixed
