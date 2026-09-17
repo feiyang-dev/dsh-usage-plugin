@@ -402,3 +402,47 @@ test('scanSession carries the route across incremental reads', async () => {
   assert.equal(second.records[0].provider, 'workbuddy')
   assert.equal(second.records[0].model, 'deepseek-v4.1-flash')
 })
+
+test('sampleOfEvent also reads usage from assistant/attempt streams (official usageOf parity)', () => {
+  // 官方 tokenUsage 投影的 usageOf：assistant/message 顶层 usage 优先，
+  // 否则回退 stream 里最后一个 usage chunk（assistant/attempt 也走这条）。
+  // 只做前者会漏掉"有 attempt 但顶层没有 usage"的调用，累计值偏小。
+  const attempt = {
+    type: 'assistant/attempt', seq: 5, time: 1000,
+    data: { turn: 2, step: 1, stream: [
+      { type: 'chunk', time: 1, chunk: { type: 'text', text: 'x' } },
+      { type: 'chunk', time: 2, chunk: { type: 'usage', usage: { inputTokens: 100, outputTokens: 20, cacheReadTokens: 900 } } }
+    ] }
+  }
+  const s = sampleOfEvent(attempt)
+  assert.ok(s, 'assistant/attempt 应能取到 usage')
+  assert.equal(s.usage.inputTokens, 100)
+  assert.equal(s.usage.cacheReadTokens, 900)
+  assert.equal(s.turn, 2)
+  assert.equal(s.step, 1)
+
+  // 顶层 usage 优先于 stream
+  const msg = {
+    type: 'assistant/message', seq: 6, time: 2000,
+    data: { turn: 3, step: 1, usage: { inputTokens: 1 }, stream: [
+      { type: 'chunk', chunk: { type: 'usage', usage: { inputTokens: 999 } } }
+    ] }
+  }
+  assert.equal(sampleOfEvent(msg).usage.inputTokens, 1, '顶层 usage 优先')
+
+  // 没有 usage 的 attempt 返回 null
+  assert.equal(sampleOfEvent({ type: 'assistant/attempt', seq: 7, time: 3000, data: { turn: 1, step: 1, stream: [] } }), null)
+})
+
+test('last usage chunk in the stream wins', () => {
+  // 对应官方 lastAssistantStreamChunk：取"最后一个"
+  const ev = {
+    type: 'assistant/attempt', seq: 8, time: 4000,
+    data: { turn: 1, step: 1, stream: [
+      { chunk: { type: 'usage', usage: { inputTokens: 1 } } },
+      { chunk: { type: 'text', text: 'a' } },
+      { chunk: { type: 'usage', usage: { inputTokens: 2 } } }
+    ] }
+  }
+  assert.equal(sampleOfEvent(ev).usage.inputTokens, 2, '应取最后一个 usage chunk')
+})

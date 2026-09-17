@@ -245,3 +245,34 @@ test('a fixed preference queries only that provider', async () => {
   assert.equal(hit.provider.id, 'digitalocean')
   assert.deepEqual(asked, ['digitalocean'], '固定选择时只查该服务商')
 })
+
+test('fmtTokens replicates the host formatTokens rule (517 / 12.2K / 517K / 1.2M)', async () => {
+  const exports = await loadClient()
+  const f = exports.fmtTokens
+  assert.equal(typeof f, 'function')
+  // 宿主 dsh-client-ui-chat 的 token-format.js 注释给出的四个样本
+  assert.equal(f(517), '517')
+  assert.equal(f(12200), '12.2K')
+  assert.equal(f(517000), '517K')
+  assert.equal(f(1200000), '1.2M')
+  // 边界：千档商 >= 100 取整，< 100 保留一位
+  assert.equal(f(999), '999', '不足 1e3 原样')
+  assert.equal(f(1000), '1K', '千档起点')
+  assert.equal(f(99900), '99.9K', '商 < 100 保留一位小数')
+  assert.equal(f(100000), '100K', '商 >= 100 取整')
+  assert.equal(f(999999), '1000K', '未达百万档仍用 K')
+  assert.equal(f(1000000), '1M', '百万档起点')
+  assert.equal(f(999000000), '999M')
+  // 截图里的真实数值：官方底栏 227K tok
+  assert.equal(f(227000), '227K')
+  assert.equal(f(0), '0')
+  assert.equal(f(undefined), '0', '非法输入回落为 0')
+  assert.equal(f(-5), '0', '负值钳到 0')
+})
+
+test('the per-message button label uses the compact token format', async () => {
+  const src = await import('node:fs').then((m) => m.readFileSync(CLIENT, 'utf8'))
+  // 按钮上的「本轮 token」必须用紧凑格式，而不是逐位逗号分隔
+  assert.equal(/t\("本轮 token"\) \+ " " \+ fmtTokens\(/.test(src), true, '按钮 label 应使用 fmtTokens')
+  assert.equal(/t\("本轮 token"\) \+ " " \+ fmtInt\(/.test(src), false, '不应再用 fmtInt')
+})

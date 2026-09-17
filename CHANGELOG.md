@@ -8,6 +8,105 @@
 
 ---
 
+## v1.16.5-local.18（本地构建 / Local build）
+
+### 界面 / UI
+
+- **「Token 明细」弹窗适配夜间模式**（lib/client.js）：弹窗此前把配色**写死**为浅色（`#ffffff` 面板底、`#1c2733` 正文、`#f5f7fa` / `#f7f8fa` 内层卡片、`#eef1f5` 进度条底、`#22a45d` 进度条），夜间模式下仍是白底黑字，与宿主主题割裂。
+  - 现全部改用宿主的主题变量：`--dsw-alias-bg-overlay`（面板底）、`--dsw-alias-bg-layer-2`（内层卡片）、`--dsw-alias-label-primary` / `-secondary`（文本层级）、`--dsw-alias-border-l1` / `-l2`（边框与分隔线）、`--dsw-alias-state-success-primary`（进度条）；每个变量都带浅色 fallback，变量缺失时仍可读。
+  - 遮罩与投影保留黑色半透明（`rgba(0,0,0,.45)` / `rgba(0,0,0,.4)`）——这两处在日夜模式下都通用。
+
+### 测试 / Tests
+
+- `test/client-integrity.test.js` 增至 6 例：弹窗必须使用主题变量、不得把面板底/正文/内层卡片写死为浅色、只允许保留遮罩与阴影两处黑色半透明。该用例已做**反向验证**：临时植回 `#ffffff` 时确实报错。
+
+### 已知问题 / Known issue
+
+- 弹窗「对话累计 总 token」与底部状态栏仍有约 1–2M 的差异（如 229M vs 227M），**原因尚未定位**。已验证的是：聚合算法与官方四桶口径逐值一致、`reasoning` 重复计算已修复，因此差异来自**数据源本身**——状态栏是会话投影（随事件即时更新），插件来自 `llm/stream` 探针记录（含轮询延迟与可能的窗口边界差异）。暂不处理。
+
+---
+
+## v1.16.5-local.17（本地构建 / Local build）
+
+### 修复 / Fixed
+
+- **累计 token 比宿主状态栏偏大**（lib/client.js + lib/scan.js）：实测同一会话，弹窗「对话累计」比底部状态栏多 0.3–1M。
+  - **主因：`reasoningTokens` 被重复累加**。宿主 `dsh-token-meter` 的 `TokenUsageProjection` 明确写着四个桶互不相交，且 *"reasoning tokens are already included in `outputTokens` and are not accumulated again"*。插件此前把 reasoning 当独立桶又加了一遍（`+ convo.reasoning` / `+ totalReason` / `+ r.reasoningTokens`），共 3 处，现已全部改为四桶口径（uncachedInput / cacheRead / cacheWrite / output）。
+  - **顺带对齐取值路径**：官方 `usageOf` 在 `assistant/message` 顶层无 `usage` 时会**回退到 stream 里最后一个 usage chunk**，且 `assistant/attempt` 也走这条。插件此前只做前者，已补齐（`lib/scan.js` 的 `sampleOfEvent` + 新增 `lastStreamUsage`）。
+  - 已用真实会话日志交叉验证：官方投影口径与插件口径在四桶相加下**逐值一致（差异 0）**。
+
+### 测试 / Tests
+
+- `test/scan.test.js` 增至 20 例：`assistant/attempt` 从 stream 取 usage、顶层 usage 优先、取最后一个 usage chunk。
+- `test/client-integrity.test.js` 增至 5 例：禁止把 reasoning 计入任何总量、关键位置必须是四桶相加。
+
+---
+
+## v1.16.5-local.16（本地构建 / Local build）
+
+### 修复 / Fixed
+
+- **点击「本轮 token」后按钮消失、弹窗打不开**（lib/client.js）：浏览器控制台报 `ReferenceError: stepStart is not defined`（`turnStats` → `body` → `MessageTokenAction`），随后 harness 记录 `slot entry crashed in 'conversation.chat.assistant-actions'` —— slot 的错误边界把整个条目卸载了，于是按钮消失、弹窗自然打不开。
+  - 根因：v1.16.5-local.14 把窗口变量从 `stepStart` 改为 `turnStart` 时，**只改了取值处，漏改了 `turnStats()` 里计算耗时的引用**。
+  - 现改为 `turnStart`（本轮耗时 = 轮次结束 − 轮次开始）。
+- 说明：我先前把症状归因于"portal 不能作为子节点"是**错误**的——查上游 1.16.5 后发现它用的是一模一样的写法；该错误改动已完全撤销，代码与上游写法一致。
+
+### 测试 / Tests
+
+- 新增 `test/client-integrity.test.js`（3 例）：禁止引用已删除的 `stepStart`、`turnStats` 内只允许已声明标识符、client 包可被解析。该测试已做**反向验证**：临时植回旧 bug 时确实报错（`stepStart 不应再出现在代码里`），还原后通过。
+
+---
+
+## v1.16.5-local.15（本地构建 / Local build）
+
+### 修复 / Fixed
+
+- **按钮一直「获取中…」、弹窗显示「无 Token 数据」**（lib/client.js，修正 v1.16.5-local.14 的遗漏）：v14 改了窗口取法，但**用错了 hook** —— 读节点用的是 `props.useSession`，而会话快照里**没有** `chat.nodes`；节点挂在 **Chat 快照**上，必须用 `props.useChat`（官方 `TurnTailNodeView` 与 `ApprovalCommand` 都是 `useChat((s) => s.nodes…)`）。用错 hook 导致窗口永远取不到，effect 提前返回，界面停在初始态。
+  - 现改用 `useChat`，按官方结构读 `node.data.finalNode`（同时兼容 `finalNode` 直接挂在节点上的形状）与 `location.turn.start/end`。
+  - 取不到窗口时明确置为 `idle`（按钮显示 `—`），**不会停在 loading**，也不会发无意义的请求。
+
+### 测试 / Tests
+
+- 新增 `test/turn-window.test.js`（4 例）：必须用 `useChat` 且不得用 `useSession` 读节点；请求窗口等于轮次边界（`from`/`to` 精确到 turn 的 start/end）而非整场会话；取不到窗口时不发请求；`finalNode` 挂在节点自身时同样可用。
+
+---
+
+## v1.16.5-local.14（本地构建 / Local build）
+
+### 修复 / Fixed
+
+- **「本轮 token」显示成了整场对话的 token**（lib/client.js + lib/index.js）：现象是消息底部按钮与弹窗里「本轮 token」「本轮耗时」与「对话累计」完全相同（如两者都是 `167M` / `185分20秒`）。实测确认根因有两层：
+  1. **前端窗口取错**：用 `timing.stepStartTime` 当本轮起点。那是**一步（step）**的起点，长会话里一个 step 会横跨很多轮，窗口因此覆盖整场对话。现改用宿主 turn 的边界：`location.turn.start.time` → `location.turn.end.time`（`ConversationLocation` 的 `TurnLocation` 结构，已按类型定义核对）。
+  2. **后端把空窗口当成全量**：`from`/`to` 都为 0 时两个 filter 都不执行，直接返回全部记录。现改为 **两个边界都无效时返回空集**，不再退化成整场对话。
+  - 按钮与弹窗的取值也收紧：**只用本轮（`aggregate`）**，本轮无记录时显示 `—` 而不是拿对话累计值顶替（这正是让两个数字看起来一样的直接原因）；弹窗「本轮明细」在无记录时给出「无法定位本轮的记录」提示。
+  - 用运行中的服务实测：`from=0,to=0` 时旧代码返回 520 条（与对话累计相同），最近 1 分钟窗口返回 2 条 —— 与诊断一致。
+
+### 说明 / Notes
+
+- 两个数字本就不同：底部状态栏是**本对话累计**，消息后按钮是**本条回复**的量。本次修复恢复了这个区分。
+- **lib/index.js 属于 host 端，需重启 `dsh web` 才生效**；仅刷新页面只会更新前端部分。
+
+### 测试 / Tests
+
+- 新增 `test/turn-usage.test.js`（4 例）：空窗口不再返回全量、窗口改用 turn 边界而非 step 起点、label 不得用对话累计冒充本轮、取不到窗口时不抛错。
+
+---
+
+## v1.16.5-local.13（本地构建 / Local build）
+
+### 变更 / Changed
+
+- **「本轮 token」改用宿主的紧凑计数写法**（lib/client.js）：消息底部按钮与「Token 明细」弹窗里的 token 数量，由逐位逗号分隔（`149,253,011`）改为 `227K` / `1.2M` 这类紧凑写法。
+  - 实现**逐字复刻**宿主的 `formatTokens`（`dsh-client-ui-chat` 的 `chat/token-format.js`），不是自创规则：`< 1e3` 原样；`< 1e6` 走千档；否则走百万档；档内先取商，**商 ≥ 100 取整、否则保留 1 位小数**，单位用**大写 K / M**。
+  - 因此 `149253011 → "149M"`、`227000 → "227K"`、`12200 → "12.2K"`、`999999 → "1000K"`。
+  - 已用 harness 源码里的 `formatTokens` 做**交叉验证**：23 个样本（含边界与真实数值）与官方实现逐值一致。
+
+### 说明 / Notes
+
+- 语义上两个数字本就不同，插件保持区分：底部状态栏的 `tok` 是**本对话累计**，消息后按钮的「本轮 token」是**本条回复**的量；弹窗内也分「对话累计」与「本轮明细」两栏，互不混用。
+
+---
+
 ## v1.16.5-local.12（本地构建 / Local build）
 
 ### 修复 / Fixed
