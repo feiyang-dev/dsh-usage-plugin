@@ -242,3 +242,32 @@ test('client isPeakNow / periodNow match the official weekend flat-rate rule (is
     if (expected === true && bj.indexOf('生效前') >= 0) assert.equal(period.label, '周末高峰时段')
   }
 })
+
+// 1.18.0 新增的「统计口径声明」与「历史价格与重算」文案同样必须中英双语齐全，
+// 否则英文界面会残留中文（空字符串翻译也会回退成中文，必须避免）。
+const BILLING_SCOPE_STRINGS = [
+  '统计口径：web_search 搜索后端未纳入精确统计',
+  'DeepSeek 搜索后端调用由 Harness 用原生请求直连官方接口，响应用量未持久化到会话日志，插件无法取到实际 token。此处只记录次数，并按请求体给出输入侧下限估算：共 ',
+  ' 次，估算消耗 ≥ ',
+  '。搜索在服务端注入检索结果并可能多轮生成，输入与输出都会高于此值，官方账单必然更高。',
+  '该部分为估算下限，请以 DeepSeek 官方后台账单为准。',
+  '历史价格提示',
+  '有 ',
+  ' 条记录没有冻结单价（旧版本写入或手工导入），它们的费用按当前价格表计算，改动价格表后会跟着变化；新记录已冻结写入时生效的单价，不受后续改价影响。',
+  '历史价格与重算',
+  ' 条记录没有冻结单价（旧版本写入或手工导入），其费用按当前价格表计算，改动价格后会跟着变化。',
+  '所有记录都已冻结写入时生效的单价：改动价格表只影响之后产生的记录，历史费用不会被改写。',
+  '用当前价格表重算全部历史',
+  '已提交，正在用当前价格表重算全部历史…',
+  '当前宿主不支持重算'
+]
+
+test('billing-scope and historical-pricing copy is translated in both locales', async () => {
+  const { exports } = await loadClient()
+  const i = exports.__i18n
+  i.setLang('zh')
+  for (const s of BILLING_SCOPE_STRINGS) assert.equal(i.t(s), s, 'zh should echo the key: ' + s.slice(0, 24))
+  i.setLang('en')
+  for (const s of BILLING_SCOPE_STRINGS) assert.notEqual(i.t(s), s, 'missing English translation for: ' + s.slice(0, 24))
+  i.setLang('en')
+})

@@ -250,11 +250,53 @@ npm ls @feiyang666/dsh-usage-plugin --prefix ~/.dsh/profiles/web
     4. **兜底（极少见）**：当前工作区 `<工作区>/dsh-usage` —— 仅当上述系统/用户目录都不可写时才使用，并会在面板顶部提示「持久化未启用」。
   - **写入不经过模型沙箱**：持久化由插件宿主进程自身的文件系统直接完成，不受 `workspace-write` 沙箱约束，因此固定目录一定能正常写入，数据也不因工作区切换而丢失。
   - Windows 下默认位置：`%LOCALAPPDATA%\dsh-usage-plugin\dsh-usage\usage-records.json`
-- 旧数据自动合并：首次启动时，落在 `%USERPROFILE%\dsh-usage`、`~/.dsh/dsh-usage` 以及各工作区 `dsh-usage`（或 `.dsh-usage-records.json`）下的旧记录会按 `time` 去重合并进固定数据根，无需手动迁移。
+- 旧数据自动合并：首次启动时，落在 `%USERPROFILE%\dsh-usage`、`~/.dsh/dsh-usage` 以及各工作区 `dsh-usage`（或 `.dsh-usage-records.json`）下的旧记录会按**记录身份**去重后合并进固定数据根，无需手动迁移。身份取 `recordId`（新记录），或"会话 + 时刻 + 模型 + 用途 + 四桶用量 + 结束原因"的复合指纹（旧记录）——不再只按毫秒去重，同一毫秒的两条不同请求不会互相覆盖。**旧版本写入的记录完全兼容**：没有 `recordId` / `pricingTime` / `unit` 等新字段也能正常读取。
+- **写入是原子的**：先写同目录临时文件并刷盘，再原子替换目标文件；失败时原文件保持不变。
+- **损坏文件不会静默清零**：若数据文件存在但无法解析，插件不会把它当成空数据（旧版本会，且随后用空数据覆盖掉整份历史），而是把原件改名保留为 `usage-records.json.corrupt-<时间戳>.json` 后继续启动，方便人工抢救。
 - 价格配置（面板内编辑后保存）：`<数据根>/dsh-usage/pricing.json`
 - 导出目录（默认）：`<数据根>/dsh-usage/{csv,json,images}/`
 - 自定义导出目录：在面板「导出目标目录」里填写或点「选择目录…」
 - 启动诊断日志（若插件激活失败）：数据根旁的 `dsh-usage-boot.log`
+
+---
+
+## 统计口径声明
+
+本插件的用量与费用**基于 DeepSeek Harness 的 `llm/stream` 事件逐次记录**，并额外通过 `session/event` 监听搜索后端请求。请先了解它的边界，再决定如何使用这些数字。
+
+### 已精确统计（上游实测值）
+
+| 来源 | 说明 |
+| --- | --- |
+| 主 Agent 对话 | 每次调用的四桶 token、缓存命中数与结束原因 |
+| 会话标题生成 | `purpose: session-title` |
+| 上下文压缩 | `purpose: compaction` |
+| 进程内子 Agent | 与主 Agent 共用同一个 `ctx.llm`，同样被拦截 |
+
+计费公式与官方口径一致：`未命中输入 × 未命中价 + 缓存命中 × 命中价 + 输出 × 输出价`。其中「缓存写入」按未命中价计、不单列（DeepSeek 官方向来不单独上报该字段）；`reasoning` 已包含在「输出」内，不另计。
+
+### 未纳入精确统计（面板中会单独标注）
+
+| 来源 | 为什么统计不到 | 插件怎么处理 |
+| --- | --- | --- |
+| **`web_search` 的 DeepSeek 搜索后端调用** | `web-search-deepseek` 在 Harness 内部用原生 `fetch` 直连 `api.deepseek.com/anthropic/v1/messages`，刻意绕开 `ctx.llm`；而且上游只把**请求**写进会话日志（`web/deepseek-search-llm-request`），响应里的 usage **被整个丢弃**（其响应类型甚至没有声明 usage 字段）。这部分真实计费没有任何数据源可以取到。 | **精确记录调用次数**，并按请求体给出**输入侧下限**估算，全部标记为 `estimated`；输出侧不猜。概览页会显示「估算消耗 ≥ ¥X（N 次）」。 |
+| 外部 CLI 子 Agent（claude-code / codex） | 起独立子进程，完全绕过 `ctx.llm`，不产生任何事件 | 不统计 |
+| 请求中断时服务端已产生的输出 | 中断时 adapter 不产出 usage chunk | 记一条 0 token 的「中断调用」，使调用次数与官方口径一致 |
+| 官方按 HTTP 请求计费，插件按「流」计费 | Harness 内部重试不会产生新的流 | 调用次数可能与官方 request_count 有出入 |
+
+### 结论
+
+- 普通对话 / coding 场景下，插件金额与官方账单**基本一致**；
+- **大量使用联网搜索（`web_search`）时，插件显示的金额会明显低于官方账单**——缺失的正是搜索后端的消耗，面板会显式提示存在估算项；
+- 任何情况下，**请以 DeepSeek 官方后台账单为准**。
+
+### 历史价格不会被改写
+
+每条记录在落盘时都会**冻结当时生效的三个单价**（记录里的 `unit` 字段）。因此：
+
+- 之后修改价格表（面板保存或直接改 `pricing.json`）**只影响之后产生的记录**，历史费用不会被重算；
+- 旧版本写入或手工导入的记录没有冻结单价，其费用按**当前**价格表计算，改动价格后会跟着变化——概览页与价格页会提示这类记录的条数；
+- 确实需要用新价格重算全部历史时，在「价格表」页点**「用当前价格表重算全部历史」**（或调用 API `{"action":"repriceAll"}`）。这是唯一会改写历史费用的入口。
 
 ---
 
@@ -309,8 +351,9 @@ pnpm dsh web
 - **[@ayleen](https://github.com/ayleen)**：为 Web 面板实现完整的英文界面（i18n 层）与响应式语言切换，余额查询改为语义化字段（[#7](https://github.com/feiyang-dev/dsh-usage-plugin/pull/7)）。
 - **[@wuhuqif176](https://github.com/wuhuqif176)**：在「剩余余额查询」中新增百炼（Qwen）Token Plan 配额查询（[#8](https://github.com/feiyang-dev/dsh-usage-plugin/pull/8)）。
 - **[@Martin-soaring-dev](https://github.com/Martin-soaring-dev)**：筹备了插件开源贡献（打包、插件契约校验、文档与 CI），并提交贡献分支，成为后续开源版本的基础（[#6](https://github.com/feiyang-dev/dsh-usage-plugin/pull/6)）。
-- **[@mumuer1024](https://github.com/mumuer1024)**：报告并定位了持久化路径随会话工作区漂移导致历史数据"消失/统计为 0"的问题，提出把数据写到固定专用目录的方案（[#4](https://github.com/feiyang-dev/dsh-usage-plugin/issues/4)）。
+- **[@mumuer1024](https://github.com/mumuer1024)**：报告并定位了持久化路径随会话工作区漂移导致历史数据"消失/统计为 0"的问题，提出把数据写到固定专用目录的方案（[#4](https://github.com/feiyang-dev/dsh-usage-plugin/issues/4)）；并报告了 DeepSeek 搜索后端调用未计入统计导致费用被严重低估的问题，给出了可在官方账单上交叉验证的完整取证（[#12](https://github.com/feiyang-dev/dsh-usage-plugin/issues/12)）。
 - **[@liu3734](https://github.com/liu3734)**：报告并定位 macOS（POSIX）下路径处理与 spawn 的 Windows 专用问题，提出跨平台修复方案（[#1](https://github.com/feiyang-dev/dsh-usage-plugin/issues/1)）。
+- **[@zhiqiangme](https://github.com/zhiqiangme)**：提交了历史用量回填与侧边栏余额的大型 PR（[#14](https://github.com/feiyang-dev/dsh-usage-plugin/pull/14)）。其中**「`cacheWriteTokens` 兜底导致四桶双计」、「同毫秒记录按 `time` 去重会互相覆盖」、「用量文件非原子写入且解析失败被静默清零」三项定位**已成为 v1.18.0 计费口径修复的核心依据（详见 [CHANGELOG](./CHANGELOG.md)）。
 
 ## 更新日志
 

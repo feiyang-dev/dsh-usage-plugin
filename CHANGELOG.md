@@ -8,6 +8,50 @@
 
 ---
 
+## v1.18.0 (2026-09-24)
+
+### 修复 / Fixed
+
+- **价格表改动不再改写历史费用**（`lib/index.js`、`lib/records.js`）：此前 `costFor()` 在计算**任何**记录时都读**当前**价格表，所以在价格表页保存一次新价、或直接改 `pricing.json` 后重启，全部历史费用都会被按新价重算——而过去那些调用的真实账单早已按当时的价结清。现在每条记录在落盘时**冻结当时生效的三个单价**（新增记录字段 `unit`：`{ hit, miss, out }`，DigitalOcean 另带 `fx`），`auto` 档计费一律优先读该快照；同时新增字段 `pricingTime`（计费时刻），历史回填 / 导入的记录也能借此冻结取价时点。旧记录缺这两个字段时行为不变（退回按当前价格表计算），概览页与价格页会提示这类记录的条数。
+- **新增显式重算入口**：价格表页新增「用当前价格表重算全部历史」按钮；API 新增 `repriceAll` 动作（`setPrices` 也可传 `reprice: true`）。这是唯一会改写历史费用的入口，日常改价不再有副作用。
+- **「缓存写入」不再用未命中数冒充**（`lib/index.js`）：DeepSeek 系 provider 不上报 `cacheWriteTokens`（官方计费里缓存写入按未命中价计、不单列），旧实现在记录层用 `inputTokens` 兜底，等于伪造一笔与未命中相等的缓存写入——四桶合计因此系统性多算一笔，插件「总 token」永远比宿主状态栏大一截。现在记录层只存上游真实上报值，「缓存写入」列显示 `—`，展示层也不再用其它字段冒充。
+- **「总 token」不再重复计入 reasoning**（`lib/client.js`）：宿主 `outputTokens` 就是上游的 `completion_tokens`，`reasoningTokens` 是它的子集。概览页、会话消耗排行、消息底部 Token 弹窗此前都把 `reasoning` 再加一遍，现已统一为四桶互斥求和。
+- **同毫秒记录不再互相覆盖**（`lib/records.js`）：导入 / 初始化 / 旧数据迁移此前一律按 `time` 去重，同一毫秒的两条不同请求会吞掉一条。改为按记录身份去重：新记录用 `recordId`，旧记录用「会话 + 时刻 + 模型 + 用途 + 四桶用量 + 结束原因」的复合指纹。
+- **用量文件改为原子写 + 损坏保护**（`lib/storage.js`）：此前直接覆盖写入，且解析失败会被静默 catch 成空数组（随后用空数组覆盖整份历史）。现在写入走「临时文件 → 刷盘 → 原子替换」，失败不触碰原文件；读取时只有「文件不存在」才返回空，解析失败则把原件改名保留为 `usage-records.json.corrupt-<时间戳>.json` 并继续启动，插件不会因此不可用。
+
+### 新增 / New
+
+- **DeepSeek 搜索后端（`web_search`）计次与下限估算**（`lib/index.js`）：`web-search-deepseek` 在 Harness 内用原生 `fetch` 直连官方接口并绕过 `ctx.llm`，上游只持久化请求、丢弃响应 usage，这部分真实计费此前在插件里完全不可见（搜索密集场景下实测差额可达 15 倍，见 issue #12）。现在通过 `ctx.on('session/event')` 接住 `web/deepseek-search-llm-request`：**精确记录调用次数**，并按请求体给出**输入侧下限**估算，记录一律带 `origin: 'search-backend'` 与 `estimated: true`；输出侧不猜。概览页新增「统计口径：web_search 搜索后端未纳入精确统计」说明块，列出次数与估算下限，并提示以官方账单为准。
+- **统计口径声明**：`README.md` / `README.zh.md` 新增「Metering scope / 统计口径声明」章节，逐项说明已精确统计与未纳入统计的来源、原因与处理方式。
+- 导出 CSV 新增 `origin`、`estimated` 两列；`list` API 新增 `legacyPricingCount`（没有冻结单价的记录数）。
+
+### 测试 / Tests
+
+- 新增 `test/records.test.js`：归一化兼容性（旧记录不补假字段）、不再伪造缓存写入、身份去重、四桶求和排除 reasoning。
+- 新增 `test/storage.test.js`：原子写替换、不留临时文件、写入失败不触碰原文件、损坏文件抛错而非返回空。
+- 新增 `test/price-freeze.test.js`：冻结单价与当前价格表解耦、复现官方计费公式、旧记录回落、快照归一化往返。
+- `test/client-i18n.test.js` 新增用例：统计口径与历史价格相关文案中英双语齐全。
+- 全部 **64/64** 通过。
+
+### 兼容性 / Compatibility
+
+- 数据文件**不需要迁移**：`usage-records.json` 的新字段（`recordId` / `pricingTime` / `origin` / `estimated` / `unit`）全部可选，旧记录按缺省处理，可原样读取。
+- 数据目录解析顺序未变。
+- 新增行为：损坏的数据文件会被改名保留（见上），插件继续可用。
+
+### 文档 / Docs
+
+- **补全贡献者名单**（`package.json` contributors）：新增 [@zhiqiangme](https://github.com/zhiqiangme)（PR #14）。
+- **README 新增「统计口径声明 / Metering scope」章节**：逐项列出已精确统计与未纳入统计的来源、原因与处理方式。
+- **README 致谢补充**：[@zhiqiangme](https://github.com/zhiqiangme)（PR #14 的三项口径定位）、[@mumuer1024](https://github.com/mumuer1024)（新增 issue #12 的取证贡献）。
+
+### 致谢 / Acknowledgements
+
+- **[@zhiqiangme](https://github.com/zhiqiangme)**：提交大型 PR [#14](https://github.com/feiyang-dev/dsh-usage-plugin/pull/14)。其中「`cacheWriteTokens` 兜底导致四桶双计」「同毫秒记录按 `time` 去重会互相覆盖」「用量文件非原子写入且解析失败被静默清零」三项定位，成为本版计费口径修复的核心依据（本版为手工移植其修复，提交已附 `Co-authored-by` 署名）。
+- **[@mumuer1024](https://github.com/mumuer1024)**：报告 issue [#12](https://github.com/feiyang-dev/dsh-usage-plugin/issues/12)，用官方账单交叉验证定位了 DeepSeek 搜索后端调用未计入统计、费用被低估约 15 倍的问题，直接促成本版的搜索后端计次与统计口径声明。
+
+---
+
 ## v1.17.0 (2026-09-11)
 
 ### 新增 / New
