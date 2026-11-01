@@ -8,6 +8,85 @@
 
 ---
 
+## v2.0.0 (2026-11-01) —— 大版本：修复 + 计费口径 + 界面重构 + 性能 + 适配
+
+> 本次是**一次对外发布**：下面「v1.19.0 ~ v1.24.0」是这次大版本在开发过程中的内部分步记录，
+> 均未单独发布到 npm / GitHub Release。对外版本号统一为 **2.0.0**。
+> 之所以升主版本：面板的**信息架构整体重排**（页签从"按数据来源"改为"按用途"），
+> 老用户的操作路径会变；其余改动向后兼容。
+
+### 一句话概览
+
+修掉了 4 个用户报告的问题（#15 / #16 / #17 / #19），并入了 1 个社区 PR（#18），
+价格口径按官方 2026-11-01 价目页重新核对，界面按「瘦身 → 重排 → 视觉规范」三步重构，
+查询与渲染性能做了针对性优化，并且**首次支持按面板自身宽度自适应**。
+
+### 修复 / Fixed
+
+- **Desktop 端费用恒为 ¥0**（[#19](https://github.com/feiyang-dev/dsh-usage-plugin/issues/19)）：桌面端官方账号的 provider id 是 `deepseek-account`，而代码只认 `deepseek-official` / `deepseek` 两个字面量，导致这类记录被判成"未知 provider"——费用恒为 0 且从不冻结单价。改为 `isDeepseekProvider()` 前缀匹配（`deepseek` / 任意 `deepseek-*`），历史记录一并算对。
+- **多币种账户只显示一种货币**（[#17](https://github.com/feiyang-dev/dsh-usage-plugin/issues/17)）：`/user/balance` 会按币种各返回一条 `balance_infos`，旧实现只取 `[0]`，另一种币种静默消失且刷新时来回跳。现在保留完整列表并按币种逐行展示（总计 / 充值 / 赠送）。
+- **用量日历整月日期错位一天**：`monthOffset()` 先取"北京零点"对应的时刻、再 `getUTCDay()` 读星期，而那个时刻在 UTC 上已退回前一天 16:00 —— 整月日期因此集体左移一列（2026-11 的 1 号是周日，却画在"周六"列）。改为直接用 `Date.UTC(y, m, 1)` 计算。
+- **趋势图 X 轴日期在窄图下重叠**（采纳 [PR #18](https://github.com/feiyang-dev/dsh-usage-plugin/pull/18)，[@vb2250158](https://github.com/vb2250158)）：按 canvas 实测文本宽度贪心排布，首尾日期优先，放不下时只保留最近日期。
+- **余额查询整体报错 `maxRedirections is not supported`**：宿主进程内改用 undici 直连时传了 undici v7 已移除的参数，导致每次余额/汇率请求都在客户端直接抛错。已移除该参数，且不跟随重定向（3xx 按非 200 原样报出）。
+- **多币种 / 余额通道**：`queryMode: 'unsupported'` 的服务商改为各自携带 `unsupportedMessage`，不再共用写死 AMD 的提示。
+
+### 计费与价格 / Pricing
+
+- **官方价目页 2026-11-01 复核**：`deepseek-flash` / `deepseek-v4-pro` 的模型单价与 1.17.0 落地的 `peakValleyV41` 完全一致，**无需调价**；本次新增的是 Search / Fetch 的**按次计费**（¥5 / 1000 次成功请求）。该调用次数 Harness 不持久化、插件取不到，因此**只做口径声明、不计入费用**（宁可少算，不编一个看起来精确的数字）。
+- **法定节假日纳入峰谷判定**：官方口径是「周一至周五（不含中国法定节假日）」，此前只处理了周末。内置 2026 年国务院公布的放假日期，可在 `pricing.json` 用 `holidays` 覆盖；**自 2026-11-01 00:00 起生效**，之前的历史调用不追溯改写。
+- **价格表历史快照 `pricing-history.json`**：每次改价 / 恢复默认自动追加一条完整快照（最多 200 条，只增不改），价格页可折叠查看「某个时刻用的是哪套价」。快照**不参与任何金额计算**。
+- **历史费用不被改写**：改价只影响之后产生的记录；每条记录继续冻结写入时生效的三个单价，`repriceAll` 仍是唯一会改写历史的显式入口。
+
+### 界面重构（三步）/ UI
+
+**Step 1 瘦身**
+- 概览页 12 个数字块 → 5 个：「一行摘要条（本月已消耗 + 预算进度 + 当前时段）」+ 4 张关键卡（总消耗 / 调用次数 / 缓存命中率 / 总 token）。
+- 两张 11 列的重复表合并为一张 + 视图切换。
+- 口径提示（`web_search 估算` / `历史价格提示`）合并为一个可折叠块，默认收起。
+- 导出 / 导入 / 目录 / 数据路径从"每个页签底部常驻"收进一处。
+
+**Step 2 信息架构重排**
+- 页签由「概览 / 用量日历 / 缓存命中列表 / 价格表」改为**「用量 / 日历 / 明细 / 设置」**——按用途而非数据来源划分；配置类内容（价格、汇率、预算、快照、口径、导出）统一进「设置」。
+- 抽出公共聚合 `aggregateRecords()`，概览与明细共用同一套口径；`BreakdownView` 独立成组件。
+
+**Step 3 视觉规范**
+- 颜色收敛为 4 类语义（`ok` / `warn` / `danger` / `accent`）+ 中性线条填充；渐变与叠加元素归入 `G`。此前同一个"蓝"有 4 种写法、同一个"红"有 3 种。
+- 字号规范成 7 档（`FS.xs…display`），59 处裸数字字号全部改为 `fs(FS.*)`。
+- 卡片分主次两级（`Card` 新增 `primary`）。
+- 清掉 15 条随重构失效的死样式；`tdTotal` / `tdTotalFirst` 原本定义两遍（后者覆盖前者）已合并。
+
+### 性能 / Performance
+
+- **轮询不再每 10 秒拉全量**：新增轻量 `stat` 动作（只回 `count` / `latest` / `pricingVersion`），客户端比对指纹，数据真的变了才拉全量；页面在后台时跳过探测。这是"用着卡"的主因（此前每 10 秒重新投影 + 序列化 + parse + 全量重渲染上万条记录）。
+- **聚合 memo 化**：`aggregateRecords()` 绑定真实输入，展开抽屉 / 切换视图不再重算全部记录。
+- **余额查询提速**：余额 / 汇率 / 百炼配额三条请求由"每次起一个 `node -e` 子进程"（Windows 上 200~800ms）改为宿主进程内 undici 直连（带 `EnvHttpProxyAgent`，尊重 `HTTPS_PROXY`），子进程仅作 undici 不可用时的兜底。
+- **用量查询提速**：`list` 不再无条件 `await` 汇率刷新（没有 DigitalOcean 记录时完全不碰网络）；`buildDays()` 复用投影结果，去掉与之完全重复的第二遍遍历。
+
+### 适配 / Responsive
+
+- **按面板自身宽度自适应**：面板常被停靠在约 590px 的侧栏里，而宿主窗口可能 1100px+。此前用**媒体查询（按窗口宽度）**，窗口够宽时一条都不生效，明细表 11 列被裁掉、「总消耗」直接看不见。改为**容器查询**：< 860px 隐藏「推理」；< 720px 再隐藏「高峰 / 空闲消耗」并贴合容器宽；< 560px 只保留前 3 个标识列 + 合计列。老引擎仍走媒体查询兜底。
+- 面板内横向滚动区补了可见滚动条样式；余额页新增「百炼按量付费」页签（说明该余额在阿里云费用中心，API Key 查不到，并给入口）。
+
+### 兼容性 / Compatibility
+
+- **安装不再被 peer 依赖卡住**（[#16](https://github.com/feiyang-dev/dsh-usage-plugin/issues/16)）：`@deepseek-ai/cordis` 由 `^4.0.1` 放宽为 `>=4.0.1` 并标记为可选 peer；README 中英均补了"0.1.x 旧包 → 卸载重装"的处置步骤。
+- 数据结构向后兼容：新增字段（`infos` / `multiCurrency` / `pricingHistory` / `version` 等）均为可选读取；旧记录可原样使用。
+- **需要重启一次 dsh 服务**（host 侧新增 `stat` 动作与版本回传）。
+
+### 测试 / Tests
+
+- 新增 7 个测试文件：`provider-alias`（provider 别名与 #19 复现金额）、`calendar`（日历列位与闰年）、`ui-render`（四个视图真实渲染冒烟）、`design-tokens`（样式不得有裸色值 / 重复键 / 裸字号）、`perf-guards`（必须用 stat 探测、聚合必须 memo、正常路径不得起子进程）、`trend-ticks`（刻度不重叠）、以及原有套件的扩充。
+- **总计 92 项，全部通过**；`scripts/check-package.js` 通过。
+
+### 致谢 / Acknowledgements
+
+- **[@vb2250158](https://github.com/vb2250158)**：提交 [PR #18](https://github.com/feiyang-dev/dsh-usage-plugin/pull/18)，给出趋势图刻度排布的完整方案与回归用例，已并入本版并加入 `contributors`。
+- **[@Auskaismyfirstlove](https://github.com/Auskaismyfirstlove)**（[#19](https://github.com/feiyang-dev/dsh-usage-plugin/issues/19)）、**[@berkinbaser](https://github.com/berkinbaser)**（[#17](https://github.com/feiyang-dev/dsh-usage-plugin/issues/17)）、**[@heshuo527](https://github.com/heshuo527)**（[#15](https://github.com/feiyang-dev/dsh-usage-plugin/issues/15)）、**[@StrangerLi](https://github.com/StrangerLi)**（[#16](https://github.com/feiyang-dev/dsh-usage-plugin/issues/16)）：报告问题并给出可复现证据。
+
+---
+
+## 开发分步记录（1.19.0 ~ 1.24.0，未单独发布）
+
 ## v1.24.0 (2026-11-01)
 
 ### 修复 / Fixed
