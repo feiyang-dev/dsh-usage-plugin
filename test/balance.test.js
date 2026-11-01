@@ -10,7 +10,7 @@ import {
 
 test('lists every balance provider and defaults to DeepSeek', () => {
   assert.deepEqual(providerList().map((p) => p.id), [
-    'deepseek', 'siliconflow', 'digitalocean', 'amd-gpu-cloud', 'qwen-token-plan'
+    'deepseek', 'siliconflow', 'digitalocean', 'amd-gpu-cloud', 'qwen-token-plan', 'bailian-payg'
   ])
   assert.equal(getBalanceProvider().id, 'deepseek')
   assert.equal(getBalanceProvider('unknown'), null)
@@ -39,6 +39,46 @@ test('does not report DeepSeek unavailable when the field is omitted', () => {
   }))
   assert.equal(res.ok, true)
   assert.equal(res.isAvailable, null)
+})
+
+// 回归用例来自 issue #17：账户同时有人民币赠送余额与美元充值余额时，官方
+// /user/balance 会在 balance_infos 里给出两条。旧实现只取 [0]，另一种币种被
+// 静默丢弃，且显示哪一种取决于数组顺序（两次刷新之间来回跳）。
+test('keeps every currency of a multi-currency DeepSeek account', () => {
+  const res = parseBalanceResponse('deepseek', JSON.stringify({
+    is_available: true,
+    balance_infos: [
+      { currency: 'CNY', total_balance: '6.00', granted_balance: '6.00', topped_up_balance: '0.00' },
+      { currency: 'USD', total_balance: '10.00', granted_balance: '0.00', topped_up_balance: '10.00' }
+    ]
+  }))
+  assert.equal(res.ok, true)
+  assert.equal(res.multiCurrency, true)
+  assert.deepEqual(res.infos.map((i) => i.currency), ['CNY', 'USD'])
+  assert.deepEqual(res.infos.map((i) => i.totalBalance), ['6.00', '10.00'])
+  // 兼容字段仍指向第一条：旧 UI / 导出不会被新字段打断
+  assert.equal(res.currency, 'CNY')
+  assert.equal(res.totalBalance, '6.00')
+  assert.deepEqual(res.details.map((d) => d.labelKey), ['toppedUp', 'granted'])
+})
+
+test('a single-currency DeepSeek account is not flagged as multi-currency', () => {
+  const res = parseBalanceResponse('deepseek', JSON.stringify({
+    balance_infos: [{ currency: 'CNY', total_balance: '1.00' }]
+  }))
+  assert.equal(res.ok, true)
+  assert.equal(res.multiCurrency, false)
+  assert.equal(res.infos.length, 1)
+})
+
+// 回归用例来自 issue #15：百炼「按量付费」的余额在阿里云费用中心，模型 API Key
+// 查不到。插件必须把这件事说清楚，而不是给一个会被误解的查询按钮。
+test('bailian pay-as-you-go is exposed as a console-only provider', () => {
+  const provider = getBalanceProvider('bailian-payg')
+  assert.equal(provider.queryMode, 'unsupported')
+  assert.match(provider.unsupportedMessage, /阿里云/)
+  assert.match(provider.credentialHelpUrl, /aliyun\.com/)
+  assert.match(parseBalanceResponse('bailian-payg', '{}').error, /没有可用的公开余额查询接口/)
 })
 
 test('normalizes researched SiliconFlow user info fields', () => {

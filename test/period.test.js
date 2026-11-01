@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { isPeakAt, WEEKEND_FLAT_AT } from '../lib/index.js'
+import { HOLIDAY_RULE_AT, HOLIDAYS_2026, bjDayKeyOf, isPeakAt, WEEKEND_FLAT_AT } from '../lib/index.js'
 
 // 回归用例来自 issue #9：周末（2026-08-23 北京时间 00:00 起）全天按空闲价，
 // 星期必须取自平移后的北京时间，且生效前不得追溯打折。
@@ -41,6 +41,27 @@ test('weekday peak windows stay 9:00–12:00 and 14:00–18:00 Beijing time', ()
   assert.equal(isPeakAt(Date.parse('2026-08-24T06:00:00Z')), true)
   // 周一 18:00 北京 → 空闲（不含右端点）
   assert.equal(isPeakAt(Date.parse('2026-08-24T10:00:00Z')), false)
+})
+
+// 官方价目页（2026-11-01 核对）：高峰时段是「周一至周五（不含中国法定节假日）」，
+// 此前本插件只处理了周末。为了不改写历史账单，节假日规则只对 2026-11-01 之后的
+// 调用生效。
+test('legal holidays are priced as off-peak from 2026-11-01 Beijing time', () => {
+  const custom = new Set(['2027-01-01'])
+  // 2027-01-04 周一 09:30 北京 → 普通工作日高峰
+  assert.equal(isPeakAt(Date.parse('2027-01-04T01:30:00Z'), custom), true)
+  // 2027-01-01 周五 09:30 北京，但属于节假日 → 空闲
+  assert.equal(isPeakAt(Date.parse('2027-01-01T01:30:00Z'), custom), false)
+  // 生效时刻之前不追溯：2026-10-01（国庆，周四）仍按旧规则判高峰
+  assert.equal(isPeakAt(Date.parse('2026-10-01T01:30:00Z'), new Set(HOLIDAYS_2026)), true)
+})
+
+test('holiday keys use Beijing-time calendar days', () => {
+  assert.equal(bjDayKeyOf(Date.parse('2026-10-01T01:30:00Z')), '2026-10-01')
+  // UTC 还是 09-30，北京时间已经跨到 10-01
+  assert.equal(bjDayKeyOf(Date.parse('2026-09-30T16:30:00Z')), '2026-10-01')
+  assert.equal(HOLIDAY_RULE_AT, Date.parse('2026-11-01T00:00:00+08:00'))
+  assert.ok(HOLIDAYS_2026.includes('2026-10-01'))
 })
 
 test('weekend days before the flat-rate rule still use the old peak split', () => {

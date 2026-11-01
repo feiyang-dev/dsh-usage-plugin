@@ -183,6 +183,17 @@ Restart the DeepSeek Harness web app (command line: kill the old process and re-
 
 "Balance Query" uses the configured `DEEPSEEK_API_KEY`: set the API Key in **Settings → Models** (same key used for chats), then open the "Balance Query" tab and click "Query Balance".
 
+The panel has six provider tabs, each with its own credential requirements:
+
+| Tab | Credential | Notes |
+| --- | --- | --- |
+| DeepSeek | `DEEPSEEK_API_KEY` (Settings → Models) | Since v1.19.0 a **multi-currency account shows one line per currency** (CNY granted balance and USD topped-up balance at the same time instead of only the first array element) |
+| SiliconFlow | The API key referenced by the provider whose Provider ID / display name is siliconflow in Settings → Models | The public endpoint returns no vouchers or historical usage |
+| DigitalOcean | Account-level `dop_v1_` Personal Access Token (with `billing:read`) | The token can be saved right on this page, no restart needed |
+| AMD GPU Cloud | — | No public balance API; console link only |
+| Bailian Token Plan | Bailian console OAuth token (`bl auth login --console`) | Shows the 1-week quota usage and period |
+| Bailian pay-as-you-go | — | Billed against your Alibaba Cloud account balance, which a **model API key cannot query**; check the Alibaba Cloud billing console (issue #15) |
+
 ---
 
 ## Uninstall
@@ -253,6 +264,8 @@ npm ls @feiyang666/dsh-usage-plugin --prefix ~/.dsh/profiles/web
 - **Writes are atomic**: a temporary file in the same directory is written, flushed, and then atomically renamed over the target; a failure leaves the existing file untouched.
 - **A corrupt file is never silently zeroed**: if the data file exists but cannot be parsed, the plugin no longer treats it as empty data (older versions did — and then overwrote the whole history with that empty array). It renames the original to `usage-records.json.corrupt-<timestamp>.json` and keeps starting, so the data can be recovered by hand.
 - Price config (edited & saved in the panel): `<data root>/dsh-usage/pricing.json`
+- Price-table snapshots (appended on every price edit / reset, capped at 200, append-only): `<data root>/dsh-usage/pricing-history.json`
+  - Used only to review "which table applied at that moment"; it **never participates in cost calculation**. You can also override the built-in legal-holiday list with `holidays: ["2027-01-01", ...]` in `pricing.json`.
 - Default export dir: `<data root>/dsh-usage/{csv,json,images}/`
 - Custom export dir: set in the panel's "Export target directory" or click "Choose directory…"
 - Startup diagnostics (if the plugin fails to activate): `dsh-usage-boot.log` next to the data root
@@ -310,6 +323,9 @@ Each record **freezes the three unit prices in effect when it was written** (its
 | `dsh plugin` reports pnpm not found | Install pnpm: `npm install -g pnpm` |
 | Install can't reach the npm registry | Set a mirror: `npm config set registry https://registry.npmmirror.com` (or `pnpm config set registry ...`) and retry |
 | After uninstall, still reports `Cannot find package '@feiyang666/...'` | A package reference remains in the profile. Remove the corresponding row from `cordis.patch.yml` and the package name from `dsh.profile.bundles`, then restart |
+| Install says "`dsh-usage-plugin@0.1.x` is incompatible with DSH x.y.z (requires the rc builds of `@deepseek-ai/dsh-credentials` / `dsh-host-webserver`)" | That requirement comes from the **0.1.x** package; 1.x only depends on `undici` and treats `@deepseek-ai/cordis` as an optional peer. Remove the old package and reinstall the latest: `dsh plugin --profile web remove @feiyang666/dsh-usage-plugin`, then `dsh plugin --profile web add @feiyang666/dsh-usage-plugin` (desktop app: Install plugins → uninstall → one-click install) — issue #16 |
+| On Desktop 0.2.x every cost is ¥0 and the price page reports that all records lack a frozen unit price | 1.18.0 and earlier only recognised the provider ids `deepseek-official` / `deepseek`, while the desktop app's official-account provider id is `deepseek-account`. Since **1.19.0** every `deepseek-*` id is matched by prefix, new records freeze their unit prices, and historical records are priced correctly too — issue #19 |
+| Balance shows only one currency | Since 1.19.0 every entry of `/user/balance`'s `balance_infos` is shown; older versions only read the first element — issue #17 |
 
 ---
 
