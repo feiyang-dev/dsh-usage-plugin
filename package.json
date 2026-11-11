@@ -98,5 +98,8 @@
   },
   "dependencies": {
     "undici": "^7.0.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.1.0"
   }
 }

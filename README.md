@@ -377,3 +377,9 @@ pnpm dsh web
 ## License
 
 MIT © dsh-usage-plugin
+
+Plugin unload removes its HTTP routes, closes its SSE subscriptions and waits for admitted API requests and their queued writes to settle. API calls arriving after unload begins return an unloading error.
+
+Unload stops optional usage observation of model streams that have not entered finalization. Their caller continues receiving the original chunks, errors and return behavior. Their final usage may be absent from this unloaded tracker. Initialization, admitted event work and already-entered finalization finish and persist collected records before disposal settles.
+
+Run the lifecycle regressions with Node.js 24 after npm ci. They use the declared Cordis 4.1.0 development dependency and controlled transport hooks. The test-only DSH_USAGE_TEST_CORDIS override can select another explicitly prepared Cordis module.
